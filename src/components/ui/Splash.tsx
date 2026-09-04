@@ -43,7 +43,7 @@ export default function Splash({ onDone }: Props) {
 			if (countRef.current) countRef.current.textContent = n.toString().padStart(3, '0');
 			if (phaseRef.current) {
 				phaseRef.current.textContent =
-					n < 28 ? 'INIT PORTFOLIO' : n < 58 ? 'LOADING TEXTURES' : n < 86 ? 'MOUNTING HERO' : n < 100 ? 'FINALIZING' : 'READY';
+					n < 28 ? 'CUTTING TYPE' : n < 58 ? 'SETTING GRID' : n < 86 ? 'POURING INDIGO' : n < 100 ? 'PRESSING SEAL' : 'READY';
 			}
 		};
 
@@ -52,23 +52,29 @@ export default function Splash({ onDone }: Props) {
 				defaults: { ease: 'power4.out' },
 				onComplete: finish,
 			});
-			// ——— babak 1: atmosfer + identitas (0 → 0.6) ———
+			// Act I — veil lift (0 → 0.5)
 			tl.fromTo('.splash-fade', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, stagger: 0.05 }, 0)
-				.fromTo('.splash-orbit-ring', { autoAlpha: 0, scale: 0.82, rotate: -24 }, { autoAlpha: 1, scale: 1, rotate: 0, duration: 0.6 }, 0.05)
-				.fromTo('.splash-logo', { autoAlpha: 0, scale: 0.78 }, { autoAlpha: 1, scale: 1, duration: 0.5 }, 0.1)
-				.fromTo('.splash-eyebrow', { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 0.15)
-				.fromTo('.splash-letter-a', { autoAlpha: 0, y: 60 }, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.05 }, 0.2)
-				.fromTo('.splash-line-b', { autoAlpha: 0, y: 44 }, { autoAlpha: 1, y: 0, duration: 0.6 }, 0.4)
-				// ——— babak 2: mesin loading (0.35 → 2.05) ———
-				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 1.7, ease: 'power2.inOut' }, 0.35)
-				.to(counter, { v: 100, duration: 1.7, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.35)
-				.fromTo('.splash-count-wrap', { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.5 }, 0.35)
-				.fromTo('.splash-log', { autoAlpha: 0, x: -14 }, { autoAlpha: 1, x: 0, duration: 0.35, stagger: 0.38 }, 0.55)
-				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.08 }, 0.5)
-				// ——— babak 3: hold + exit ———
-				.to({}, { duration: 0.18 })
-				.to('.splash-content', { y: -56, duration: 0.6, ease: 'power3.in' }, 'exit')
-				.to(el, { yPercent: -100, duration: 0.6, ease: 'power4.inOut' }, 'exit');
+				.fromTo('.splash-frame-corner', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.5, stagger: 0.06 }, 0.05)
+				.fromTo('.splash-seal-wrap', { autoAlpha: 0, scale: 0.86 }, { autoAlpha: 1, scale: 1, duration: 0.55 }, 0.1)
+				.fromTo('.splash-eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45 }, 0.15)
+				// Act II — display type + sheen (0.3 → 1.2)
+				.fromTo('.splash-letter-a', { autoAlpha: 0, y: 64 }, { autoAlpha: 1, y: 0, duration: 0.65, stagger: 0.055 }, 0.3)
+				.fromTo('.splash-line-b', { autoAlpha: 0, y: 46 }, { autoAlpha: 1, y: 0, duration: 0.65 }, 0.5)
+				.fromTo('.splash-sheen', { backgroundPosition: '120% 0' }, { backgroundPosition: '-20% 0', duration: 1.0, ease: 'power2.inOut' }, 0.7)
+				// Act III — ledger + counter + seal stamp (0.9 → 2.3)
+				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 1.7, ease: 'power2.inOut' }, 0.6)
+				.to(counter, { v: 100, duration: 1.7, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.6)
+				.fromTo('.splash-ledger-line', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 0.9)
+				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.08 }, 0.95)
+				.to('.splash-seal-draw', { strokeDashoffset: 0, duration: 1.1, ease: 'power2.inOut' }, 1.0)
+				.fromTo('.splash-seal-letter', { autoAlpha: 0, scale: 1.35 }, { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'expo.out' }, 1.75)
+				.fromTo('.splash-seal-bloom', { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 1.75)
+				// Act IV — hold + curtain exit
+				.to({}, { duration: 0.2 })
+				.to('.splash-content', { y: -64, duration: 0.7, ease: 'power3.in' }, 'exit')
+				.to('.splash-curtain-l', { xPercent: -101, duration: 0.7, ease: 'power4.inOut' }, 'exit')
+				.to('.splash-curtain-r', { xPercent: 101, duration: 0.7, ease: 'power4.inOut' }, 'exit')
+				.to(el, { yPercent: -100, duration: 0.7, ease: 'power4.inOut' }, 'exit+=0.12');
 		}, el);
 
 		const onClick = () => {
