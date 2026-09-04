@@ -8,7 +8,7 @@ type Props = {
 };
 
 /**
- * Splash screen — midnight atelier (~3.5s).
+ * Splash screen — midnight atelier (~4.0s, counter santai).
  * Gerbang tersibak di awal (reveal), lalu segel + display + sheen + ledger
  * dimainkan TERBUKA, hold 0.4s agar terbaca, lalu wipe ke atas.
  * Muncul sekali per session (diatur dari App via sessionStorage).
@@ -65,8 +65,8 @@ export default function Splash({ onDone }: Props) {
 				.fromTo('.splash-line-b', { autoAlpha: 0, y: 46 }, { autoAlpha: 1, y: 0, duration: 0.65 }, 0.65)
 				.fromTo('.splash-sheen', { backgroundPosition: '120% 0' }, { backgroundPosition: '-20% 0', duration: 0.9, ease: 'power2.inOut' }, 0.9)
 				// Act II — ledger + counter + seal stamp (0.8 → 2.4), panggung sudah terbuka penuh
-				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 1.5, ease: 'power2.inOut' }, 0.8)
-				.to(counter, { v: 100, duration: 1.5, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.8)
+				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 2.2, ease: 'power2.inOut' }, 0.8)
+				.to(counter, { v: 100, duration: 2.2, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.8)
 				.fromTo('.splash-ledger-line', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 1.1)
 				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.08 }, 1.15)
 				.to('.splash-seal-draw', { strokeDashoffset: 0, duration: 1.0, ease: 'power2.inOut' }, 1.2)
