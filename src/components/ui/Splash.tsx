@@ -8,9 +8,9 @@ type Props = {
 };
 
 /**
- * Splash screen — OPSI A, sinematik (~2.7s).
- * Display dua baris + counter raksasa + boot-log terminal berurutan,
- * lalu wipe ke atas dengan parallax isi.
+ * Splash screen — midnight atelier (~3.5s).
+ * Gerbang tersibak di awal (reveal), lalu segel + display + sheen + ledger
+ * dimainkan TERBUKA, hold 0.4s agar terbaca, lalu wipe ke atas.
  * Muncul sekali per session (diatur dari App via sessionStorage).
  * Klik / Enter / Space / Esc untuk skip. Reduced-motion: selesai instan.
  */
@@ -52,29 +52,30 @@ export default function Splash({ onDone }: Props) {
 				defaults: { ease: 'power4.out' },
 				onComplete: finish,
 			});
-			// Act I — veil lift (0 → 0.5)
-			tl.fromTo('.splash-fade', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, stagger: 0.05 }, 0)
-				.fromTo('.splash-frame-corner', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.5, stagger: 0.06 }, 0.05)
-				.fromTo('.splash-seal-wrap', { autoAlpha: 0, scale: 0.86 }, { autoAlpha: 1, scale: 1, duration: 0.55 }, 0.1)
-				.fromTo('.splash-eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45 }, 0.15)
-				// Act II — display type + sheen (0.3 → 1.2)
-				.fromTo('.splash-letter-a', { autoAlpha: 0, y: 64 }, { autoAlpha: 1, y: 0, duration: 0.65, stagger: 0.055 }, 0.3)
-				.fromTo('.splash-line-b', { autoAlpha: 0, y: 46 }, { autoAlpha: 1, y: 0, duration: 0.65 }, 0.5)
-				.fromTo('.splash-sheen', { backgroundPosition: '120% 0' }, { backgroundPosition: '-20% 0', duration: 1.0, ease: 'power2.inOut' }, 0.7)
-				// Act III — ledger + counter + seal stamp (0.9 → 2.3)
-				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 1.7, ease: 'power2.inOut' }, 0.6)
-				.to(counter, { v: 100, duration: 1.7, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.6)
-				.fromTo('.splash-ledger-line', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 0.9)
-				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.08 }, 0.95)
-				.to('.splash-seal-draw', { strokeDashoffset: 0, duration: 1.1, ease: 'power2.inOut' }, 1.0)
-				.fromTo('.splash-seal-letter', { autoAlpha: 0, scale: 1.35 }, { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'expo.out' }, 1.75)
-				.fromTo('.splash-seal-bloom', { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 1.75)
-				// Act IV — hold + curtain exit
-				.to({}, { duration: 0.2 })
-				.to('.splash-content', { y: -64, duration: 0.7, ease: 'power3.in' }, 'exit')
-				.to('.splash-curtain-l', { xPercent: -101, duration: 0.7, ease: 'power4.inOut' }, 'exit')
-				.to('.splash-curtain-r', { xPercent: 101, duration: 0.7, ease: 'power4.inOut' }, 'exit')
-				.to(el, { yPercent: -100, duration: 0.7, ease: 'power4.inOut' }, 'exit+=0.12');
+			// Act 0 — gerbang tersibak dulu (0 → 0.8): adegan harus TERBUKA saat dimainkan.
+			// Panel default tertutup dari CSS; tidak ada fromTo agar tak ada flash konten.
+			tl.to('.splash-curtain-l', { xPercent: -101, duration: 0.9, ease: 'power4.inOut' }, 0)
+				.to('.splash-curtain-r', { xPercent: 101, duration: 0.9, ease: 'power4.inOut' }, 0)
+				.fromTo('.splash-fade', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.5, stagger: 0.05 }, 0.1)
+				.fromTo('.splash-frame-corner', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.5, stagger: 0.06 }, 0.2)
+				// Act I — identitas (0.3 → 1.3), overlap dengan gerbang yang masih tersibak
+				.fromTo('.splash-seal-wrap', { autoAlpha: 0, scale: 0.86 }, { autoAlpha: 1, scale: 1, duration: 0.55 }, 0.3)
+				.fromTo('.splash-eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45 }, 0.35)
+				.fromTo('.splash-letter-a', { autoAlpha: 0, y: 64 }, { autoAlpha: 1, y: 0, duration: 0.65, stagger: 0.055 }, 0.45)
+				.fromTo('.splash-line-b', { autoAlpha: 0, y: 46 }, { autoAlpha: 1, y: 0, duration: 0.65 }, 0.65)
+				.fromTo('.splash-sheen', { backgroundPosition: '120% 0' }, { backgroundPosition: '-20% 0', duration: 0.9, ease: 'power2.inOut' }, 0.9)
+				// Act II — ledger + counter + seal stamp (0.8 → 2.4), panggung sudah terbuka penuh
+				.fromTo('.splash-bar', { scaleX: 0 }, { scaleX: 1, duration: 1.5, ease: 'power2.inOut' }, 0.8)
+				.to(counter, { v: 100, duration: 1.5, ease: 'power2.inOut', onUpdate: setCount, onStart: setCount }, 0.8)
+				.fromTo('.splash-ledger-line', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 1.1)
+				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.4, stagger: 0.08 }, 1.15)
+				.to('.splash-seal-draw', { strokeDashoffset: 0, duration: 1.0, ease: 'power2.inOut' }, 1.2)
+				.fromTo('.splash-seal-letter', { autoAlpha: 0, scale: 1.35 }, { autoAlpha: 1, scale: 1, duration: 0.45, ease: 'expo.out' }, 1.95)
+				.fromTo('.splash-seal-bloom', { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5 }, 1.95)
+				// Act III — hold agar terbaca, lalu wipe sederhana (gerbang sudah terbuka)
+				.to({}, { duration: 0.4 })
+				.to('.splash-content', { y: -64, duration: 0.6, ease: 'power3.in' }, 'exit')
+				.to(el, { yPercent: -100, duration: 0.7, ease: 'power4.inOut' }, 'exit');
 		}, el);
 
 		const onClick = () => {
