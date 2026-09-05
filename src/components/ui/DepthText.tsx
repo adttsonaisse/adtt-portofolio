@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 
 export interface DepthTextProps {
   text?: string;
@@ -59,8 +59,21 @@ const DepthText = ({
 }: DepthTextProps) => {
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const stageRef = useRef<HTMLSpanElement | null>(null);
+  const [isLite, setIsLite] = useState(false);
+
+  // Deteksi mobile / pointer kasar sekali — lapis dipangkas adaptif biar ringan.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 768px), (hover: none), (pointer: coarse)');
+    const sync = () => setIsLite(mq.matches);
+    sync();
+    mq.addEventListener?.('change', sync);
+    return () => mq.removeEventListener?.('change', sync);
+  }, []);
 
   const safeLayers = clamp(Math.round(Number(layers) || 1), 2, MAX_LAYERS);
+  // Desktop: cap 14 lapis, mobile/coarse: cap 8 lapis. Visual tetap tebal, cost turun ~50-70%.
+  const effectiveLayers = isLite ? Math.min(safeLayers, 8) : Math.min(safeLayers, 14);
   const safeDepth = clamp(Number(depth) || 0, 0, 12);
   const safeTilt = clamp(Number(tilt) || 0, 0, 12);
   const safeSmoothing = clamp(Number(smoothing) || 0.14, 0.02, 0.35);
@@ -71,15 +84,15 @@ const DepthText = ({
 
   const depthLayers = useMemo<DepthLayer[]>(
     () =>
-      Array.from({ length: safeLayers }, (_, layerIndex) => {
-        const index = safeLayers - layerIndex;
+      Array.from({ length: effectiveLayers }, (_, layerIndex) => {
+        const index = effectiveLayers - layerIndex;
         return {
           index,
-          color: getLayerColor(faceColor, depthColor, index, safeLayers),
+          color: getLayerColor(faceColor, depthColor, index, effectiveLayers),
           transform: `translateZ(${-index * safeDepth}px)`
         };
       }),
-    [safeLayers, safeDepth, faceColor, depthColor]
+    [effectiveLayers, safeDepth, faceColor, depthColor]
   );
 
   useEffect(() => {
@@ -93,7 +106,8 @@ const DepthText = ({
 
     let frameId = 0;
     let activePointer = false;
-    let startTime = performance.now();
+    let inViewport = true;
+    const startTime = performance.now();
     const current = { ...baseRotation };
     const target = { ...baseRotation };
 
@@ -124,13 +138,37 @@ const DepthText = ({
       target.y = baseRotation.y;
     };
 
+    // Pointer hanya di root (bukan window) — hemat event + tidak ganggu Hero spotlight.
     if (canTrackPointer) {
-      window.addEventListener('pointermove', handlePointerMove);
-      window.addEventListener('pointerleave', handlePointerLeave);
+      root.addEventListener('pointermove', handlePointerMove, { passive: true });
+      root.addEventListener('pointerleave', handlePointerLeave);
       window.addEventListener('blur', handlePointerLeave);
     }
 
+    // Pause rAF saat off-screen / tab hidden — penghemat utama saat scroll.
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              inViewport = entries[0]?.isIntersecting ?? true;
+            },
+            { threshold: 0 }
+          )
+        : null;
+    io?.observe(root);
+
+    const onVisibility = () => {
+      // diamkan orbit sejenak saat tab kembali biar tidak lompat
+      if (!document.hidden) activePointer = false;
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
     const tick = (now: number) => {
+      // Skip kerja saat tidak terlihat — cukup schedule frame berikutnya.
+      if (!inViewport || document.hidden) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
       if ((!canTrackPointer || !activePointer) && autoOrbit) {
         const elapsed = (now - startTime) / 1000;
         const orbit = elapsed * safeOrbitSpeed * Math.PI * 2;
@@ -139,8 +177,16 @@ const DepthText = ({
         target.y = baseRotation.y + Math.cos(orbit * 0.85) * safeTilt * fallbackAmount;
       }
 
-      current.x += (target.x - current.x) * safeSmoothing;
-      current.y += (target.y - current.y) * safeSmoothing;
+      const dx = target.x - current.x;
+      const dy = target.y - current.y;
+      // Jika sudah settle dan tidak auto-orbit, skip tulis DOM.
+      if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001 && (!autoOrbit || !inViewport)) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+
+      current.x += dx * safeSmoothing;
+      current.y += dy * safeSmoothing;
       applyTransform();
       frameId = requestAnimationFrame(tick);
     };
@@ -150,12 +196,13 @@ const DepthText = ({
 
     return () => {
       if (canTrackPointer) {
-        window.removeEventListener('pointermove', handlePointerMove);
-        window.removeEventListener('pointerleave', handlePointerLeave);
+        root.removeEventListener('pointermove', handlePointerMove);
+        root.removeEventListener('pointerleave', handlePointerLeave);
         window.removeEventListener('blur', handlePointerLeave);
       }
+      io?.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
       cancelAnimationFrame(frameId);
-      startTime = 0;
     };
   }, [autoOrbit, baseRotation, pointerTracking, safeOrbitSpeed, safeSmoothing, safeTilt]);
 

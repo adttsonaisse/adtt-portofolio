@@ -1,5 +1,6 @@
 import LogoLoop from '../ui/LogoLoop';
 import { skillGroups } from '../../data/skills';
+import { useSectionReveal } from '../../hooks/useSectionReveal';
 import {
 	SiSvelte,
 	SiTypescript,
@@ -66,12 +67,13 @@ function toLogos(skills: string[]) {
 }
 
 export default function Skills() {
+	const ref = useSectionReveal<HTMLElement>();
 	const row1 = toLogos(skillGroups[0].skills);
 	const row2 = toLogos(skillGroups[1].skills);
 	const row3 = toLogos(skillGroups[2].skills);
 
 	return (
-		<section id="skills" data-reveal className="relative py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
+		<section id="skills" ref={ref} data-reveal className="relative py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
 			<div
 				className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]"
 				style={{ background: 'radial-gradient(900px circle at 18% 18%, var(--color-indigo-100) 0%, transparent 62%), radial-gradient(700px circle at 88% 84%, var(--color-primary) 0%, transparent 55%)' }}
@@ -79,7 +81,7 @@ export default function Skills() {
 			/>
 
 			<div className="mx-auto max-w-340 px-4 md:px-6">
-				<div className="flex flex-wrap items-end justify-between gap-4">
+				<div className="flex flex-wrap items-end justify-between gap-4" data-reveal-item>
 					<div>
 						<p className="font-mono text-xs tracking-[0.14em] uppercase" style={{ color: 'var(--color-primary)' }}>
 							Service
@@ -96,7 +98,7 @@ export default function Skills() {
 					</p>
 				</div>
 
-				<div className="mt-10 flex flex-col gap-1">
+				<div className="mt-10 flex flex-col gap-1" data-reveal-item>
 					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
 						<LogoLoop
 							logos={row1}
@@ -135,7 +137,7 @@ export default function Skills() {
 					</div>
 				</div>
 
-				<div className="mt-8 grid gap-4 md:grid-cols-3">
+				<div className="mt-8 grid gap-4 md:grid-cols-3" data-reveal-item>
 					{skillGroups.map((group, idx) => (
 						<div
 							key={group.label}

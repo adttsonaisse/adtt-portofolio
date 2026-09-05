@@ -1,24 +1,42 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { site } from '../../data/site';
 import DepthText from '../ui/DepthText';
 import { useTheme } from '../../hooks/useTheme';
+import { useSectionReveal } from '../../hooks/useSectionReveal';
 
 export default function Hero() {
-	const [x, setX] = useState(50);
-	const [y, setY] = useState(50);
-	const [hovering, setHovering] = useState(false);
+	const ref = useSectionReveal<HTMLElement>({ immediate: true, y: 16, itemY: 12, duration: 0.7, stagger: 0.08 });
 	const { theme } = useTheme();
+	const spotlightRef = useRef<HTMLDivElement>(null);
+	const rafRef = useRef(0);
 
+	// Spotlight tanpa re-render: tulis --x/--y langsung ke DOM + throttle rAF.
+	// Hemat: tidak ada setState per mousemove, DepthText tidak ikut re-render.
 	const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-		const el = e.currentTarget;
-		const r = el.getBoundingClientRect();
-		setX(((e.clientX - r.left) / r.width) * 100);
-		setY(((e.clientY - r.top) / r.height) * 100);
-		setHovering(true);
+		const el = spotlightRef.current ?? e.currentTarget;
+		const clientX = e.clientX;
+		const clientY = e.clientY;
+		if (rafRef.current) return;
+		rafRef.current = requestAnimationFrame(() => {
+			rafRef.current = 0;
+			const r = el.getBoundingClientRect();
+			if (!r.width || !r.height) return;
+			el.style.setProperty('--x', `${(((clientX - r.left) / r.width) * 100).toFixed(2)}%`);
+			el.style.setProperty('--y', `${(((clientY - r.top) / r.height) * 100).toFixed(2)}%`);
+			el.style.setProperty('--show', '1');
+		});
+	};
+
+	const onLeave = () => {
+		if (rafRef.current) {
+			cancelAnimationFrame(rafRef.current);
+			rafRef.current = 0;
+		}
+		spotlightRef.current?.style.setProperty('--show', '0');
 	};
 
 	return (
-		<section id="home" className="relative overflow-hidden" style={{ scrollMarginTop: 80 }}>
+		<section id="home" ref={ref} data-reveal className="relative overflow-hidden" style={{ scrollMarginTop: 80 }}>
 			<div
 				className="pointer-events-none absolute top-[48%] left-1/2 hidden -translate-x-1/2 -translate-y-1/2 select-none md:block"
 				aria-hidden="true"
@@ -33,7 +51,7 @@ export default function Hero() {
 
 			<div className="relative mx-auto max-w-[1360px] px-4 md:px-6">
 				<div className="grid min-h-[620px] grid-cols-12 gap-6 py-8 md:min-h-[720px] md:gap-4 md:py-6">
-					<div className="col-span-12 flex flex-col justify-between md:col-span-3">
+					<div className="col-span-12 flex flex-col justify-between md:col-span-3" data-reveal-item>
 						<div>
 							<h1
 								className="flex flex-col gap-0 overflow-visible text-[3.2rem] leading-[0.88] tracking-[-0.05em] md:text-[4.4rem] lg:text-[5.6rem]"
@@ -53,16 +71,16 @@ export default function Hero() {
 								<span className="inline-block max-w-full overflow-visible pr-6 md:pr-10">
 									<DepthText
 										text="ADITYA"
-										layers={28}
-										depth={2.2}
+										layers={14}
+										depth={1.4}
 										faceColor={theme === 'light' ? '#0a0a0b' : '#fafafa'}
 										depthColor="#5855F6"
-										tilt={7}
+										tilt={5}
 										pointerTracking
-										smoothing={0.14}
+										smoothing={0.12}
 										perspective={900}
 										autoOrbit
-										orbitSpeed={0.28}
+										orbitSpeed={0.15}
 										fontSize="1em"
 										fontWeight={900}
 										shadow={false}
@@ -91,7 +109,7 @@ export default function Hero() {
 						</p>
 					</div>
 
-					<div className="relative col-span-12 flex items-end justify-center md:col-span-6">
+					<div className="relative col-span-12 flex items-end justify-center md:col-span-6" data-reveal-item>
 						<div
 							className="pointer-events-none absolute bottom-0 left-1/2 h-[74%] w-[92%] -translate-x-1/2 rounded-t-[28px] opacity-60"
 							style={{
@@ -101,16 +119,17 @@ export default function Hero() {
 						/>
 
 						<div
+							ref={spotlightRef}
 							className="hero-reveal group relative z-10 block w-[380px] cursor-crosshair md:w-[500px] lg:w-[580px]"
 							style={
 								{
-									'--x': `${x}%`,
-									'--y': `${y}%`,
-									'--show': hovering ? '1' : '0',
+									'--x': '50%',
+									'--y': '50%',
+									'--show': '0',
 								} as React.CSSProperties
 							}
 							onMouseMove={onMove}
-							onMouseLeave={() => setHovering(false)}
+							onMouseLeave={onLeave}
 						>
 							<picture>
 								<source srcSet="/adtt-600.webp 600w, /adtt.webp 900w" type="image/webp" />
@@ -142,7 +161,7 @@ export default function Hero() {
 						</div>
 					</div>
 
-					<div className="col-span-12 flex flex-col justify-between md:col-span-3">
+					<div className="col-span-12 flex flex-col justify-between md:col-span-3" data-reveal-item>
 						<div className="text-left md:text-right">
 							<p className="font-mono text-xs tracking-[0.14em] uppercase" style={{ color: 'var(--hero-heading)' }}>
 								Follow Me
@@ -189,17 +208,24 @@ export default function Hero() {
 			</div>
 
 			<style>{`
+        .hero-reveal { transform: translateZ(0); contain: layout paint; }
         .hero-base { filter: grayscale(100%) drop-shadow(0 24px 36px rgba(0,0,0,0.12)); }
         .hero-overlay {
-          filter: drop-shadow(0 24px 36px rgba(0,0,0,0.12));
+          /* drop-shadow dihapus di overlay (sudah ada di base) — hemat 1x filter mahal per frame */
           mask-image: radial-gradient(circle 190px at var(--x) var(--y), black 0 110px, rgba(0,0,0,0.95) 125px, transparent 190px);
           -webkit-mask-image: radial-gradient(circle 190px at var(--x) var(--y), black 0 110px, rgba(0,0,0,0.95) 125px, transparent 190px);
           opacity: var(--show);
-          transition: opacity 0.2s ease;
-          will-change: mask-image;
+          transition: opacity 0.25s ease;
           pointer-events: none;
         }
-        @media (prefers-reduced-motion: reduce) { .hero-overlay { transition: none; } }
+        @media (max-width: 768px) {
+          .hero-overlay {
+            mask-image: radial-gradient(circle 130px at var(--x) var(--y), black 0 80px, transparent 130px);
+            -webkit-mask-image: radial-gradient(circle 130px at var(--x) var(--y), black 0 80px, transparent 130px);
+          }
+        }
+        @media (hover: none), (pointer: coarse) { .hero-overlay { display: none; } }
+        @media (prefers-reduced-motion: reduce) { .hero-overlay { transition: none; display: none; } }
         [data-theme='dark'] section div[aria-hidden] p { color: rgba(129,140,248,0.09) !important; }
         [data-theme='light'] section div[aria-hidden] p { color: rgba(88, 85, 246, 0.06) !important; }
       `}</style>

@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { projects } from '../../data/projects';
-import CircularGallery from '../ui/CircularGallery';
+import CircularGallery, { type CircularGalleryHandle } from '../ui/CircularGallery';
 import { useTheme } from '../../hooks/useTheme';
+import { useSectionReveal } from '../../hooks/useSectionReveal';
 
 export default function Projects() {
+  const ref = useSectionReveal<HTMLElement>();
+  const galleryRef = useRef<CircularGalleryHandle>(null);
   const [active, setActive] = useState(0);
   const { theme } = useTheme();
   const textColor = theme === 'light' ? '#111111' : '#ffffff';
@@ -11,13 +14,13 @@ export default function Projects() {
   const current = projects[active] ?? projects[0];
 
   return (
-    <section id="projects" data-reveal className="relative py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
+    <section id="projects" ref={ref} data-reveal className="relative py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
       <div
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06]"
         style={{ background: 'radial-gradient(500px circle at 80% 20%, var(--color-primary) 0%, transparent 60%)' }}
         aria-hidden="true"
       />
-      <div className="mx-auto max-w-[1360px] px-4 md:px-6">
+      <div className="mx-auto max-w-[1360px] px-4 md:px-6" data-reveal-item>
         <p className="font-mono text-xs tracking-[0.14em] uppercase" style={{ color: 'var(--color-primary)' }}>
           Portfolio
         </p>
@@ -29,9 +32,10 @@ export default function Projects() {
         </p>
       </div>
 
-      <div className="mx-auto mt-8 max-w-340 px-4 md:px-6">
-        <div style={{ height: '600px', position: 'relative' }} className="overflow-hidden rounded-[28px]">
+      <div className="mx-auto mt-8 max-w-340 px-4 md:px-6" data-reveal-item>
+        <div style={{ height: '600px', position: 'relative' }} className="group relative overflow-hidden rounded-[28px]">
           <CircularGallery
+            ref={galleryRef}
             bend={1}
             textColor={textColor}
             borderRadius={0.05}
@@ -40,6 +44,36 @@ export default function Projects() {
             items={items}
             onActiveIndexChange={setActive}
           />
+          <button
+            type="button"
+            aria-label="Previous project"
+            onClick={() => galleryRef.current?.prev()}
+            className="absolute top-1/2 left-3 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-lg transition hover:scale-105 active:scale-95 md:left-5 md:h-12 md:w-12"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
+              color: 'var(--fg)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            <span aria-hidden>←</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Next project"
+            onClick={() => galleryRef.current?.next()}
+            className="absolute top-1/2 right-3 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border text-lg transition hover:scale-105 active:scale-95 md:right-5 md:h-12 md:w-12"
+            style={{
+              borderColor: 'var(--border)',
+              background: 'color-mix(in srgb, var(--surface) 82%, transparent)',
+              color: 'var(--fg)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+            }}
+          >
+            <span aria-hidden>→</span>
+          </button>
         </div>
 
         <div className="mt-5 flex flex-col items-center gap-3">
@@ -93,7 +127,7 @@ export default function Projects() {
             )}
           </div>
           <p className="font-mono text-[10px] tracking-[0.08em] uppercase" style={{ color: 'var(--fg-muted)', opacity: 0.5 }}>
-            drag / swipe / Shift+scroll / arrow keys untuk ganti — vertical scroll tetap scroll halaman
+            drag / swipe / Shift+scroll / arrow keys / tombol ← → untuk ganti — vertical scroll tetap scroll halaman
           </p>
         </div>
       </div>

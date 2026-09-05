@@ -1,4 +1,5 @@
 import { useMemo, useState, useRef } from 'react';
+import { useSectionReveal } from '../../hooks/useSectionReveal';
 
 type Cat = 'Project' | 'Prestasi';
 type Item = {
@@ -154,12 +155,13 @@ function TimelineCard({ e, idx }: { e: Item; idx: number }) {
 }
 
 export default function Experience() {
+  const sectionRef = useSectionReveal<HTMLElement>();
   const [filter, setFilter] = useState<(typeof cats)[number]>('Semua');
   // tanpa sorting — keep original order
   const filtered = useMemo(() => (filter === 'Semua' ? items : items.filter((i) => i.cat === filter)), [filter]);
 
   return (
-    <section id="experience" data-reveal className="relative overflow-hidden py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
+    <section id="experience" ref={sectionRef} data-reveal className="relative overflow-hidden py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
       <div
         className="pointer-events-none absolute inset-0 -z-10 opacity-[0.05]"
         style={{ background: 'radial-gradient(800px circle at 12% 18%, var(--color-primary) 0%, transparent 62%)' }}
@@ -173,7 +175,7 @@ export default function Experience() {
 
       <div className="relative mx-auto max-w-[1360px] px-4 md:px-6">
         {/* header */}
-        <div className="flex flex-wrap items-end justify-between gap-6">
+        <div className="flex flex-wrap items-end justify-between gap-6" data-reveal-item>
           <div>
             <p className="font-mono text-xs tracking-[0.14em] uppercase" style={{ color: 'var(--color-primary)' }}>
               Journey
@@ -206,7 +208,7 @@ export default function Experience() {
         </div>
 
         {/* timeline */}
-        <div className="relative mt-10 md:mt-12">
+        <div className="relative mt-10 md:mt-12" data-reveal-item>
           {/* vertical line */}
           <div className="absolute top-0 bottom-0 left-[11px] hidden w-px md:left-[14px] md:block" style={{ background: 'linear-gradient(to bottom, rgba(88,85,246,0.35), var(--border) 18%, var(--border) 100%)' }} aria-hidden />
           {/* indigo top glow */}

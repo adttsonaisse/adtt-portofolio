@@ -7,7 +7,7 @@ import {
   Texture,
   Transform,
 } from "ogl";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 type GL = Renderer["gl"];
 
@@ -777,6 +777,22 @@ class App {
     this.emitActive();
   }
 
+  goStep(dir: 1 | -1) {
+    const step = this.medias?.[0]?.width ?? this.scrollSpeed * 5;
+    if (!step || Number.isNaN(step)) return;
+    this.scroll.target += dir * step;
+    this.onCheckDebounce();
+    this.emitActive();
+  }
+
+  next() {
+    this.goStep(1);
+  }
+
+  prev() {
+    this.goStep(-1);
+  }
+
   onResize() {
     this.screen = {
       width: this.container.clientWidth,
@@ -876,22 +892,39 @@ interface CircularGalleryProps {
   onActiveIndexChange?: (index: number) => void;
 }
 
-export default function CircularGallery({
-  items,
-  bend = 3,
-  textColor = "#ffffff",
-  borderRadius = 0.05,
-  font = "bold 30px Figtree",
-  fontUrl,
-  scrollSpeed = 2,
-  scrollEase = 0.05,
-  onActiveIndexChange,
-}: CircularGalleryProps) {
+export type CircularGalleryHandle = {
+  next: () => void;
+  prev: () => void;
+};
+
+const CircularGallery = forwardRef<CircularGalleryHandle, CircularGalleryProps>(function CircularGallery(
+  {
+    items,
+    bend = 3,
+    textColor = "#ffffff",
+    borderRadius = 0.05,
+    font = "bold 30px Figtree",
+    fontUrl,
+    scrollSpeed = 2,
+    scrollEase = 0.05,
+    onActiveIndexChange,
+  }: CircularGalleryProps,
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const appRef = useRef<App | null>(null);
   const callbackRef = useRef(onActiveIndexChange);
   useEffect(() => {
     callbackRef.current = onActiveIndexChange;
   }, [onActiveIndexChange]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      next: () => appRef.current?.next(),
+      prev: () => appRef.current?.prev(),
+    }),
+    [],
+  );
   useEffect(() => {
     if (!containerRef.current) return;
     let app: App | undefined;
@@ -908,9 +941,11 @@ export default function CircularGallery({
         scrollEase,
         onActiveIndexChange: (idx: number) => callbackRef.current?.(idx),
       });
+      appRef.current = app;
     });
     return () => {
       isMounted = false;
+      appRef.current = null;
       if (app) app.destroy();
     };
   }, [items, bend, textColor, borderRadius, font, fontUrl, scrollSpeed, scrollEase]);
@@ -923,4 +958,6 @@ export default function CircularGallery({
       aria-label="Circular image gallery. Use Left and Right Arrow keys to navigate."
     />
   );
-}
+});
+
+export default CircularGallery;

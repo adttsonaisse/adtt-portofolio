@@ -1,10 +1,13 @@
 import { site } from "../../data/site";
 import Lanyard from "../Lanyard";
+import { useSectionReveal } from "../../hooks/useSectionReveal";
 
 export default function About() {
+  const ref = useSectionReveal<HTMLElement>();
   return (
     <section
       id="about"
+      ref={ref}
       data-reveal
       className="relative overflow-hidden py-8 md:py-16"
       style={{ scrollMarginTop: 80 }}
@@ -26,7 +29,7 @@ export default function About() {
 
       <div className="relative mx-auto max-w-340 px-4 md:px-6">
         <div className="grid gap-6 md:grid-cols-12 md:gap-10">
-          <div className="relative md:col-span-5">
+          <div className="relative md:col-span-5" data-reveal-item>
             <p
               className="mb-3 font-mono text-xs tracking-[0.14em] uppercase"
               style={{ color: "var(--color-primary)" }}
@@ -66,6 +69,7 @@ export default function About() {
           <div className="md:col-span-7 flex gap-6 md:gap-8">
             <div className="flex flex-1 flex-col justify-center">
               <h2
+                data-reveal-item
                 className="text-[2rem] leading-[0.95] font-black tracking-[-0.03em] md:text-[2.5rem]"
                 style={{ color: "var(--fg)" }}
               >
@@ -78,6 +82,7 @@ export default function About() {
                 style={{ background: "var(--color-primary)" }}
               />
               <p
+                data-reveal-item
                 className="mt-6 max-w-xl text-[15px] leading-7"
                 style={{ color: "var(--fg-muted)" }}
               >
@@ -88,6 +93,7 @@ export default function About() {
                 place.
               </p>
               <p
+                data-reveal-item
                 className="mt-4 max-w-xl text-[15px] leading-7"
                 style={{ color: "var(--fg-muted)" }}
               >
@@ -96,7 +102,7 @@ export default function About() {
                 software that feels larger than where it started.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap gap-3" data-reveal-item>
                 <a
                   href="#contact"
                   className="rounded-full px-6 py-3 text-sm font-semibold text-white transition hover:brightness-[0.96]"

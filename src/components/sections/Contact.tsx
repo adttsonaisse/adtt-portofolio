@@ -4,6 +4,7 @@ import { FaFacebook, FaGithub, FaLinkedinIn, FaTelegram, FaTiktok, FaWhatsapp } 
 import { FiLink, FiMail } from 'react-icons/fi';
 import { BsInstagram } from 'react-icons/bs';
 import { useTheme } from '../../hooks/useTheme';
+import { useSectionReveal } from '../../hooks/useSectionReveal';
 
 const SIZE = 76;
 const RADIUS = 188;
@@ -24,6 +25,7 @@ const nodes: Node[] = [
 const _link = <FiLink size={18} />;
 
 export default function Contact() {
+  const sectionRef = useSectionReveal<HTMLElement>();
   const [copied, setCopied] = useState(false);
   const groupRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
@@ -107,10 +109,10 @@ export default function Contact() {
   }, []);
 
   return (
-    <section id="contact" data-reveal className="py-10 md:py-14" style={{ scrollMarginTop: 80 }}>
+    <section id="contact" ref={sectionRef} data-reveal className="py-10 md:py-14" style={{ scrollMarginTop: 80 }}>
       <div className="mx-auto flex w-full max-w-340 flex-col justify-center px-4 md:px-6">
         <div className="grid items-center gap-10 md:grid-cols-2 md:gap-6 lg:gap-10">
-          <div>
+          <div data-reveal-item>
             <p className="font-mono text-xs tracking-[0.18em] uppercase" style={{ color: 'var(--fg-muted)' }}>
               — Contact
             </p>
@@ -146,7 +148,7 @@ export default function Contact() {
             </div>
           </div>
 
-          <div ref={groupRef} className="group relative mx-auto flex h-[420px] w-full max-w-[520px] items-center justify-center md:h-[500px] md:max-w-none">
+          <div ref={groupRef} data-reveal-item className="group relative mx-auto flex h-[420px] w-full max-w-[520px] items-center justify-center md:h-[500px] md:max-w-none">
             <div className="pointer-events-none absolute rounded-full border" style={{ width: RADIUS * 2, height: RADIUS * 2, borderColor: 'var(--border)', opacity: 0.9 }} />
             <div className="pointer-events-none absolute rounded-full border border-dashed" style={{ width: RADIUS * 2 + 46, height: RADIUS * 2 + 46, borderColor: 'var(--border)', opacity: 0.5 }} />
             <div className="pointer-events-none absolute rounded-full blur-3xl" style={{ width: 220, height: 220, background: 'radial-gradient(circle, rgba(88,85,246,0.14) 0%, transparent 70%)' }} aria-hidden />
