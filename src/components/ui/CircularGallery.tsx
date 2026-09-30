@@ -547,6 +547,8 @@ class App {
   galleryCount: number = 1;
   lastActiveIndex: number = -1;
   onActiveIndexChange?: (index: number) => void;
+  // Sampel gerakan untuk flick velocity saat lepas.
+  private swipeSamples: { x: number; t: number }[] = [];
 
   constructor(
     container: HTMLElement,
@@ -704,6 +706,7 @@ class App {
     this.isDown = true;
     this.scroll.position = this.scroll.current;
     this.start = "touches" in e ? e.touches[0].clientX : e.clientX;
+    this.swipeSamples = [{ x: this.start, t: performance.now() }];
   }
 
   onTouchMove(e: MouseEvent | TouchEvent) {
@@ -711,11 +714,33 @@ class App {
     const x = "touches" in e ? e.touches[0].clientX : e.clientX;
     const distance = (this.start - x) * (this.scrollSpeed * 0.025);
     this.scroll.target = (this.scroll.position ?? 0) + distance;
+    this.swipeSamples.push({ x, t: performance.now() });
+    if (this.swipeSamples.length > 6) this.swipeSamples.shift();
   }
 
   onTouchUp() {
     if (!this.isDown) return;
     this.isDown = false;
+    // Flick: lempar 1–3 item sesuai kecepatan lepas (diabaikan bila pelan).
+    try {
+      const s = this.swipeSamples;
+      if (s.length >= 2) {
+        const first = s[0];
+        const last = s[s.length - 1];
+        const dt = Math.max(1, last.t - first.t);
+        const v = (last.x - first.x) / dt; // px/ms; negatif = swipe kiri = maju
+        if (Math.abs(v) > 0.35) {
+          const step = this.medias?.[0]?.width ?? 0;
+          if (step > 0) {
+            const extra = Math.max(1, Math.min(3, Math.round(Math.abs(v) * 1.4))) * (v < 0 ? 1 : -1);
+            this.scroll.target += extra * step;
+          }
+        }
+      }
+    } catch {
+      /* abaikan — snap normal tetap jalan */
+    }
+    this.swipeSamples = [];
     this.onCheck();
     this.emitActive();
   }

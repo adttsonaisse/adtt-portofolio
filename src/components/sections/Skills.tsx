@@ -1,6 +1,9 @@
+import type { CSSProperties } from 'react';
 import LogoLoop from '../ui/LogoLoop';
-import { skillGroups } from '../../data/skills';
+import { skillFacts, skillGroups } from '../../data/skills';
 import { useSectionReveal } from '../../hooks/useSectionReveal';
+import { useLanguage } from '../../hooks/useLanguage';
+import { useMessages } from '../../lib/messages';
 import {
 	SiSvelte,
 	SiTypescript,
@@ -43,16 +46,16 @@ const iconMap: Record<string, { Icon: React.ComponentType<{ size?: number; style
 	'Parallax & Motion': { Icon: SiFramer, color: '#0055FF', href: 'https://www.framer.com/motion' },
 };
 
-function toLogos(skills: string[]) {
+function toLogos(skills: string[], facts: Record<string, string>) {
 	return skills.map((label) => {
 		const entry = iconMap[label];
 		if (!entry) return { node: <span className="font-mono text-sm font-bold">{label.slice(0, 2)}</span>, title: label };
 		const { Icon, color, href } = entry;
 		return {
 			node: (
-				<span className="inline-flex items-center gap-3 bg-transparent md:gap-3.5">
+				<span className="skill-logo inline-flex items-center gap-3 bg-transparent md:gap-3.5" style={{ '--brand': color } as CSSProperties} data-fact={facts[label] ?? label}>
 					<span className="flex shrink-0 items-center justify-center bg-transparent" style={{ width: 56, height: 56 }}>
-						<Icon size={44} style={{ color }} />
+						<Icon size={44} />
 					</span>
 					<span className="font-sans text-[1.1rem] font-black tracking-[-0.03em] md:text-[1.5rem]" style={{ color: 'var(--fg)' }}>
 						{label}
@@ -61,106 +64,82 @@ function toLogos(skills: string[]) {
 			),
 			title: label,
 			href,
-			ariaLabel: label,
+			ariaLabel: `${label} — ${facts[label] ?? label}`,
 		};
 	});
 }
 
 export default function Skills() {
 	const ref = useSectionReveal<HTMLElement>();
-	const row1 = toLogos(skillGroups[0].skills);
-	const row2 = toLogos(skillGroups[1].skills);
-	const row3 = toLogos(skillGroups[2].skills);
+	const { locale } = useLanguage();
+	const m = useMessages(locale);
+	const groups = skillGroups[locale];
+	const facts = skillFacts[locale];
+	const row1 = toLogos(groups[0].skills, facts);
+	const row2 = toLogos(groups[1].skills, facts);
+	const row3 = toLogos(groups[2].skills, facts);
 
 	return (
-		<section id="skills" ref={ref} data-reveal className="relative py-16 md:py-20" style={{ scrollMarginTop: 80 }}>
-			<div
-				className="pointer-events-none absolute inset-0 -z-10 opacity-[0.07]"
-				style={{ background: 'radial-gradient(900px circle at 18% 18%, var(--color-indigo-100) 0%, transparent 62%), radial-gradient(700px circle at 88% 84%, var(--color-primary) 0%, transparent 55%)' }}
-				aria-hidden="true"
-			/>
-
+		<section id="skills" ref={ref} data-reveal className="relative py-20 md:py-28" style={{ scrollMarginTop: 80 }}>
 			<div className="mx-auto max-w-340 px-4 md:px-6">
 				<div className="flex flex-wrap items-end justify-between gap-4" data-reveal-item>
 					<div>
-						<p className="font-mono text-xs tracking-[0.14em] uppercase" style={{ color: 'var(--color-primary)' }}>
-							Service
+						<p className="section-label">
+							02 · {m.skills.label}
 						</p>
 						<h2 className="mt-2 text-[2rem] font-black tracking-[-0.03em] md:text-[2.6rem]" style={{ color: 'var(--fg)' }}>
-							Craft, systems & delivery
+							{m.skills.title}
 						</h2>
 						<p className="mt-3 max-w-xl text-sm leading-6" style={{ color: 'var(--fg-muted)' }}>
-							Frontend craft with editorial precision — performance, accessibility, and motion that feels expensive.
+							{m.skills.description}
 						</p>
 					</div>
-					<p className="hidden font-mono text-xs tracking-[0.08em] md:block" style={{ color: 'var(--fg-muted)', opacity: 0.6 }}>
-						LogoLoop • 3 rows opposite • real logos
-					</p>
+					{m.skills.devLabel ? (
+						<p className="hidden font-mono text-xs tracking-[0.08em] md:block" style={{ color: 'var(--fg-muted)', opacity: 0.6 }}>
+							{m.skills.devLabel}
+						</p>
+					) : null}
 				</div>
 
 				<div className="mt-10 flex flex-col gap-1" data-reveal-item>
+					{/* Kecepatan bervariasi per baris (110 / 85 / 110): ritme,
+					    bukan tiga marquee kembar. Arah selang-seling menuntun mata. */}
 					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
 						<LogoLoop
 							logos={row1}
-							speed={120}
+							speed={110}
 							direction="left"
 							logoHeight={56}
 							gap={48}
 							hoverSpeed={0}
 							scaleOnHover
-							ariaLabel="Frontend Craft logos"
+							ariaLabel={m.skills.ariaFrontend}
 						/>
 					</div>
 					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
 						<LogoLoop
 							logos={row2}
-							speed={120}
+							speed={85}
 							direction="right"
 							logoHeight={56}
 							gap={48}
 							hoverSpeed={0}
 							scaleOnHover
-							ariaLabel="Backend logos"
+							ariaLabel={m.skills.ariaBackend}
 						/>
 					</div>
 					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
 						<LogoLoop
 							logos={row3}
-							speed={120}
+							speed={110}
 							direction="left"
 							logoHeight={56}
 							gap={48}
 							hoverSpeed={0}
 							scaleOnHover
-							ariaLabel="Tooling logos"
+							ariaLabel={m.skills.ariaTooling}
 						/>
 					</div>
-				</div>
-
-				<div className="mt-8 grid gap-4 md:grid-cols-3" data-reveal-item>
-					{skillGroups.map((group, idx) => (
-						<div
-							key={group.label}
-							className="relative overflow-hidden rounded-2xl border p-5"
-							style={{
-								borderColor: group.accent ? 'var(--color-primary)' : 'var(--border)',
-								background: group.accent ? 'color-mix(in srgb, var(--color-primary) 6%, var(--card-bg))' : 'var(--card-bg)',
-							}}
-						>
-							{group.accent && <div className="pointer-events-none absolute -top-8 -right-8 h-20 w-20 rounded-full opacity-[0.08] blur-xl" style={{ background: 'var(--color-primary)' }} />}
-							<p className="flex items-center gap-2 font-mono text-[11px] tracking-[0.12em] uppercase" style={{ color: group.accent ? 'var(--color-primary)' : 'var(--fg-muted)' }}>
-								{group.accent && <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-primary)' }} />}
-								0{idx + 1} — {group.label}
-							</p>
-							<p className="mt-2 text-sm font-semibold" style={{ color: 'var(--fg)' }}>
-								{group.label}
-							</p>
-							<p className="mt-1 text-xs leading-5" style={{ color: 'var(--fg-muted)' }}>
-								{group.accent && 'Accent stack — highlight craft. '}
-								{group.skills.slice(0, 4).join(' • ')}
-							</p>
-						</div>
-					))}
 				</div>
 			</div>
 		</section>

@@ -5,12 +5,27 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="text-scale" content="scale" />
+    <meta
+      name="description"
+      content="Portfolio of Aditya Nurdiansyah, Indonesian-based Software Engineer crafting editorial-grade engineering."
+    />
     <title>Aditya Nurdiansyah — Software Engineer</title>
     <script>
       (function () {
         try {
-          var stored = localStorage.getItem('theme');
-          var theme = stored || 'dark';
+          var localeStored = localStorage.getItem('locale');
+          var locale = localeStored === 'en' || localeStored === 'id' ? localeStored : null;
+          if (!locale) {
+            var nav = (navigator.language || 'en').toLowerCase();
+            locale = nav.indexOf('id') === 0 ? 'id' : 'en';
+          }
+          document.documentElement.setAttribute('lang', locale);
+        } catch (e) {
+          document.documentElement.setAttribute('lang', 'en');
+        }
+        try {
+          var themeStored = localStorage.getItem('theme');
+          var theme = themeStored || 'dark';
           document.documentElement.setAttribute('data-theme', theme);
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'dark');

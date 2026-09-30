@@ -17,6 +17,10 @@ export interface DepthTextProps {
   shadow?: boolean;
   className?: string;
   style?: CSSProperties;
+  /** Naikkan untuk memicu "kick" playful (gelombang). 0 = diam. */
+  pulseKey?: number;
+  /** Tunda kick (ms) — untuk stagger per huruf. */
+  pulseDelay?: number;
 }
 
 interface DepthLayer {
@@ -55,11 +59,15 @@ const DepthText = ({
   fontWeight = 900,
   shadow = true,
   className = '',
-  style = {}
+  style = {},
+  pulseKey = 0,
+  pulseDelay = 0,
 }: DepthTextProps) => {
   const rootRef = useRef<HTMLSpanElement | null>(null);
   const stageRef = useRef<HTMLSpanElement | null>(null);
   const [isLite, setIsLite] = useState(false);
+  // Kick playful: target + expiry yang dibaca loop rAF.
+  const kickRef = useRef({ x: 0, y: 0, until: 0 });
 
   // Deteksi mobile / pointer kasar sekali — lapis dipangkas adaptif biar ringan.
   useEffect(() => {
@@ -169,7 +177,11 @@ const DepthText = ({
         frameId = requestAnimationFrame(tick);
         return;
       }
-      if ((!canTrackPointer || !activePointer) && autoOrbit) {
+      const kicking = now < kickRef.current.until;
+      if (kicking) {
+        target.x = kickRef.current.x;
+        target.y = kickRef.current.y;
+      } else if ((!canTrackPointer || !activePointer) && autoOrbit) {
         const elapsed = (now - startTime) / 1000;
         const orbit = elapsed * safeOrbitSpeed * Math.PI * 2;
         const fallbackAmount = canTrackPointer ? 0.18 : 0.55;
@@ -205,6 +217,25 @@ const DepthText = ({
       cancelAnimationFrame(frameId);
     };
   }, [autoOrbit, baseRotation, pointerTracking, safeOrbitSpeed, safeSmoothing, safeTilt]);
+
+  // Pulse dari luar (klik): tendang target sesaat, smoothing mengayun kembali.
+  // Dihormati reduced-motion (diam). Stagger diatur pemanggil via pulseDelay.
+  useEffect(() => {
+    if (pulseKey === 0) return;
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setTimeout(
+      () => {
+        kickRef.current = {
+          x: baseRotation.x - safeTilt * 1.8,
+          y: baseRotation.y + safeTilt * 1.8,
+          until: performance.now() + 380,
+        };
+      },
+      Math.max(0, pulseDelay),
+    );
+    return () => window.clearTimeout(timer);
+  }, [pulseKey, pulseDelay, baseRotation, safeTilt]);
 
   const rootStyle: CSSProperties = {
     ...style,

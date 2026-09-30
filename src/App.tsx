@@ -2,6 +2,8 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import Hero from './components/sections/Hero';
+import { useLanguage } from './hooks/useLanguage';
+import { useMessages } from './lib/messages';
 // About EAGER — di dalamnya ada Lanyard 3D yang harus muncul cepat.
 // Skills/Projects/Contact tetap lazy, masing-masing boundary sendiri supaya
 // loading satu section tidak menarik section lain ke fallback.
@@ -10,12 +12,16 @@ const Skills = lazy(() => import('./components/sections/Skills'));
 const Projects = lazy(() => import('./components/sections/Projects'));
 const Contact = lazy(() => import('./components/sections/Contact'));
 import Splash from './components/ui/Splash';
+import Cursor from './components/ui/Cursor';
+import { begin } from './lib/loadProgress';
 import cardGLBUrl from './assets/lanyard/card.glb';
 import lanyardTexUrl from './assets/lanyard/lanyard.png';
 
 const SPLASH_KEY = 'splash-seen';
 
 export default function App() {
+	const { locale } = useLanguage();
+	const m = useMessages(locale);
 	// Splash hanya sekali per session; skip total jika reduced-motion
 	const [splashDone, setSplashDone] = useState(() => {
 		if (typeof window === 'undefined') return true;
@@ -40,20 +46,16 @@ export default function App() {
 	// Preload gambar Hero + logo + aset Lanyard selama splash tampil, supaya
 	// saat Hero/About mount tidak ada decode dingin yang bikin jank.
 	// card.glb di-warm via fetch (HTTP cache) tanpa menarik drei ke chunk utama.
+	// Terdaftar di loadProgress agar counter Splash mengikuti loading asli.
 	useEffect(() => {
-		const srcs = ['/logo.png', '/adtt-600.webp', '/adtt.webp', '/lanyard-biodata-front.png'];
-		srcs.forEach((src) => {
-			const img = new Image();
-			img.decoding = 'async';
-			img.src = src;
-		});
-		[lanyardTexUrl, cardGLBUrl].forEach((url) => {
-			try {
-				fetch(url, { credentials: 'same-origin' }).catch(() => {});
-			} catch {
-				/* abaikan */
-			}
-		});
+		begin([
+			{ url: '/logo.png', mode: 'img' },
+			{ url: '/adtt-600.webp', mode: 'img' },
+			{ url: '/adtt.webp', mode: 'img' },
+			{ url: '/lanyard-biodata-front.png', mode: 'img' },
+			{ url: lanyardTexUrl, mode: 'fetch' },
+			{ url: cardGLBUrl, mode: 'fetch' },
+		]);
 	}, []);
 
 	// kunci scroll selama splash tampil
@@ -68,6 +70,7 @@ export default function App() {
 
 	return (
 		<>
+			<Cursor />
 			{!splashDone && <Splash onDone={handleSplashDone} />}
 			{/* konten di-mount setelah splash selesai supaya intro Hero
 			    dan ScrollTrigger section mulai fresh, bukan di balik splash */}
@@ -77,7 +80,7 @@ export default function App() {
 						href="#main"
 						className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-100 focus:rounded focus:bg-accent focus:px-4 focus:py-2 focus:text-white"
 					>
-						Skip to content
+						{m.nav.skip}
 					</a>
 					<Header />
 					<main id="main">

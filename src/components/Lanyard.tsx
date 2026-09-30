@@ -315,6 +315,13 @@ function Band({
             onPointerUp={(e: ThreeEvent<PointerEvent>) => {
               (e.target as Element).releasePointerCapture(e.pointerId);
               drag(false);
+              // Lepas = sentilan playful: dorong kartu mengayun sendiri.
+              try {
+                card.current?.wakeUp();
+                card.current?.applyImpulse({ x: (Math.random() - 0.5) * 1.6, y: 1.4, z: 0 }, true);
+              } catch {
+                /* abaikan */
+              }
             }}
             onPointerDown={(e: ThreeEvent<PointerEvent>) => {
               (e.target as Element).setPointerCapture(e.pointerId);

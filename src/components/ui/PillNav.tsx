@@ -112,31 +112,34 @@ const PillNav: React.FC<PillNavProps> = ({
       gsap.set(menu, { visibility: 'hidden', opacity: 0, scaleY: 1, y: 0 });
     }
 
-    if (initialLoadAnimation) {
-      const logo = logoRef.current;
-      const navItems = navItemsRef.current;
+    return () => window.removeEventListener('resize', onResize);
+  }, [items, ease]);
 
-      if (logo) {
-        gsap.set(logo, { scale: 0 });
-        gsap.to(logo, {
-          scale: 1,
-          duration: 0.6,
-          ease
-        });
-      }
+  // Intro jalan sekali saat mount — dipisah dari layout agar tidak ke-replay
+  // tiap items berubah (scroll ganti activeHref / ganti bahasa).
+  useEffect(() => {
+    if (!initialLoadAnimation) return;
+    const logo = logoRef.current;
+    const navItems = navItemsRef.current;
 
-      if (navItems) {
-        gsap.set(navItems, { width: 0, overflow: 'hidden' });
-        gsap.to(navItems, {
-          width: 'auto',
-          duration: 0.6,
-          ease
-        });
-      }
+    if (logo) {
+      gsap.set(logo, { scale: 0 });
+      gsap.to(logo, {
+        scale: 1,
+        duration: 0.6,
+        ease
+      });
     }
 
-    return () => window.removeEventListener('resize', onResize);
-  }, [items, ease, initialLoadAnimation]);
+    if (navItems) {
+      gsap.set(navItems, { width: 0, overflow: 'hidden' });
+      gsap.to(navItems, {
+        width: 'auto',
+        duration: 0.6,
+        ease
+      });
+    }
+  }, []);
 
   const handleEnter = (i: number) => {
     const tl = tlRefs.current[i];
@@ -361,10 +364,11 @@ const PillNav: React.FC<PillNavProps> = ({
 
       <div
         ref={mobileMenuRef}
-        className="md:hidden absolute top-[3em] left-4 right-4 rounded-[27px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] z-[998] origin-top"
+        className="md:hidden absolute top-[3em] left-4 right-4 rounded-[20px] border shadow-[0_8px_32px_rgba(0,0,0,0.12)] z-[998] origin-top"
         style={{
           ...cssVars,
-          background: 'var(--base, #f0f0f0)'
+          background: 'var(--surface, #141416)',
+          borderColor: 'var(--border)',
         }}
       >
         <ul className="list-none m-0 p-[3px] flex flex-col gap-[3px]">
