@@ -1,96 +1,143 @@
 import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
 
 type Options = {
-	/** posisi trigger ScrollTrigger, default 'top 82%' */
+	/** posisi trigger viewport (dipertahankan untuk kompatibilitas API), default 'top 82%' */
 	start?: string;
 	/** jarak naik section (px), default 44 */
 	y?: number;
 	/** jarak naik item (px), default 32 */
 	itemY?: number;
-	/** durasi section, default 0.9 */
+	/** durasi section (detik), default 0.9 */
 	duration?: number;
-	/** jeda stagger antar item, default 0.14 */
+	/** jeda stagger antar item (detik), default 0.14 */
 	stagger?: number;
 	/** kalau true, langsung main saat mount (untuk Hero) */
 	immediate?: boolean;
 };
 
-const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
+const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 /**
- * Stagger reveal per section pakai GSAP ScrollTrigger.
- * - section fade + naik, lalu [data-reveal-item] muncul berurutan
- * - main sekali (once: true), aman StrictMode, hormati reduced-motion
- * - initial state di-set via gsap.set (bukan CSS) supaya tanpa JS konten tetap kelihatan
- *
- * @example
- * const ref = useSectionReveal<HTMLElement>();
- * <section ref={ref} data-reveal>...<h2 data-reveal-item>...</h2></section>
+ * Stagger reveal per section memakai IntersectionObserver + Web Animations API native.
+ * - 0KB GSAP/ScrollTrigger di initial bundle maupun di About/Skills/Contact
+ * - jalan di GPU compositor, main sekali, tanpa ResizeObserver/ScrollTrigger.refresh()
+ * - aman StrictMode dan tetap terlihat jika JS tidak jalan
  */
 export function useSectionReveal<T extends HTMLElement = HTMLElement>(options: Options = {}) {
-	const { start = 'top 82%', y = 44, itemY = 32, duration = 0.9, stagger = 0.14, immediate = false } = options;
+	const { y = 44, itemY = 32, duration = 0.9, stagger = 0.14, immediate = false } = options;
 	const ref = useRef<T | null>(null);
 
 	useEffect(() => {
 		const el = ref.current;
-		if (!el) return;
-		if (window.matchMedia(REDUCED_QUERY).matches) return;
+		if (!el || typeof el.animate !== 'function') return;
 
-		const items = el.querySelectorAll('[data-reveal-item]');
-		const ctx = gsap.context(() => {
-			// Path immediate (Hero): animasikan item saja, bukan whole section.
-			// Menghindari repaint 1 layer raksasa tepat saat entry setelah splash.
-			if (immediate) {
-				if (items.length === 0) return;
-				gsap.set(items, { autoAlpha: 0, y: itemY });
-				gsap.to(items, {
-					autoAlpha: 1,
-					y: 0,
-					duration,
-					stagger,
-					ease: 'power3.out',
-					overwrite: 'auto',
-					// Mulai setelah 2 frame biar decode gambar + paint pertama selesai dulu.
-					delay: 0.05,
-					onComplete: () => gsap.set(items, { clearProps: 'will-change,transform,opacity,visibility' }),
-				});
-				return;
-			}
+		const items = Array.from(el.querySelectorAll<HTMLElement>('[data-reveal-item]'));
+		const activeAnims: Animation[] = [];
 
-			gsap.set(el, { autoAlpha: 0, y });
-			if (items.length > 0) gsap.set(items, { autoAlpha: 0, y: itemY });
-
-			const tl = gsap.timeline({
-				defaults: { ease: 'power3.out', overwrite: 'auto' },
-				scrollTrigger: { trigger: el, start, once: true },
+		const playImmediate = () => {
+			if (items.length === 0) return;
+			items.forEach((item, i) => {
+				activeAnims.push(
+					item.animate(
+						[
+							{ opacity: 0, transform: `translate3d(0, ${itemY}px, 0)` },
+							{ opacity: 1, transform: 'translate3d(0, 0, 0)' },
+						],
+						{
+							duration: Math.round(duration * 1000),
+							delay: 50 + Math.round(i * stagger * 1000),
+							easing: EASE_OUT,
+							fill: 'both',
+						},
+					),
+				);
 			});
-			tl.to(el, { autoAlpha: 1, y: 0, duration });
-			if (items.length > 0) {
-				tl.to(items, { autoAlpha: 1, y: 0, duration: 0.7, stagger }, '-=0.55');
-			}
-			tl.set([el, ...Array.from(items)], { clearProps: 'will-change' });
-		}, el);
+		};
 
-		// Section lazy (Skills/Projects/Contact) mengubah tinggi halaman saat
-		// chunk-nya resolve — hitung ulang posisi semua trigger di frame idle
-		// berikutnya supaya tidak ada section yang stuck invisible.
-		const raf = requestAnimationFrame(() => {
-			try {
-				ScrollTrigger.refresh();
-			} catch {
-				/* abaikan */
-			}
+		if (immediate) {
+			playImmediate();
+			return () => {
+				activeAnims.forEach((a) => a.cancel());
+			};
+		}
+
+		let played = false;
+		const playSection = () => {
+			if (played) return;
+			played = true;
+			el.style.opacity = '';
+			el.style.transform = '';
+			items.forEach((item) => {
+				item.style.opacity = '';
+				item.style.transform = '';
+			});
+			activeAnims.push(
+				el.animate(
+					[
+						{ opacity: 0, transform: `translate3d(0, ${y}px, 0)` },
+						{ opacity: 1, transform: 'translate3d(0, 0, 0)' },
+					],
+					{ duration: Math.round(duration * 1000), easing: EASE_OUT, fill: 'both' },
+				),
+			);
+			const itemBaseDelay = Math.max(0, Math.round((duration - 0.55) * 1000));
+			items.forEach((item, i) => {
+				activeAnims.push(
+					item.animate(
+						[
+							{ opacity: 0, transform: `translate3d(0, ${itemY}px, 0)` },
+							{ opacity: 1, transform: 'translate3d(0, 0, 0)' },
+						],
+						{
+							duration: 700,
+							delay: itemBaseDelay + Math.round(i * stagger * 1000),
+							easing: EASE_OUT,
+							fill: 'both',
+						},
+					),
+				);
+			});
+		};
+
+		// Jika sudah masuk viewport saat mount, langsung animasikan tanpa menunggu observer.
+		const rect = el.getBoundingClientRect();
+		if (rect.top < window.innerHeight * 0.9 || typeof IntersectionObserver === 'undefined') {
+			playSection();
+			return () => {
+				activeAnims.forEach((a) => a.cancel());
+			};
+		}
+
+		// Sembunyikan sebelum masuk viewport, lalu reveal sekali saat mendekati 82% viewport.
+		el.style.opacity = '0';
+		el.style.transform = `translate3d(0, ${y}px, 0)`;
+		items.forEach((item) => {
+			item.style.opacity = '0';
+			item.style.transform = `translate3d(0, ${itemY}px, 0)`;
 		});
 
+		const io = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) {
+					io.disconnect();
+					playSection();
+				}
+			},
+			{ rootMargin: '0px 0px -15% 0px', threshold: 0.01 },
+		);
+		io.observe(el);
+
 		return () => {
-			cancelAnimationFrame(raf);
-			ctx.revert();
+			io.disconnect();
+			activeAnims.forEach((a) => a.cancel());
+			el.style.opacity = '';
+			el.style.transform = '';
+			items.forEach((item) => {
+				item.style.opacity = '';
+				item.style.transform = '';
+			});
 		};
-	}, [start, y, itemY, duration, stagger, immediate]);
+	}, [y, itemY, duration, stagger, immediate]);
 
 	return ref;
 }

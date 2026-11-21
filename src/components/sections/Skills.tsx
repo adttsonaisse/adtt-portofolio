@@ -104,7 +104,7 @@ export default function Skills() {
 				<div className="mt-10 flex flex-col gap-1" data-reveal-item>
 					{/* Kecepatan bervariasi per baris (110 / 85 / 110): ritme,
 					    bukan tiga marquee kembar. Arah selang-seling menuntun mata. */}
-					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
+					<div className="relative overflow-x-clip rounded-2xl bg-transparent py-2 hover:z-20 focus-within:z-20">
 						<LogoLoop
 							logos={row1}
 							speed={110}
@@ -116,7 +116,7 @@ export default function Skills() {
 							ariaLabel={m.skills.ariaFrontend}
 						/>
 					</div>
-					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
+					<div className="relative overflow-x-clip rounded-2xl bg-transparent py-2 hover:z-20 focus-within:z-20">
 						<LogoLoop
 							logos={row2}
 							speed={85}
@@ -128,7 +128,7 @@ export default function Skills() {
 							ariaLabel={m.skills.ariaBackend}
 						/>
 					</div>
-					<div className="overflow-hidden rounded-2xl bg-transparent py-2">
+					<div className="relative overflow-x-clip rounded-2xl bg-transparent py-2 hover:z-20 focus-within:z-20">
 						<LogoLoop
 							logos={row3}
 							speed={110}

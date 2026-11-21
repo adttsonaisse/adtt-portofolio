@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { FiCheck, FiChevronDown, FiGlobe } from 'react-icons/fi';
+import { IconCheck, IconChevronDown, IconGlobe } from './Icons';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
 import type { Locale } from '../../types/i18n';
@@ -70,11 +70,10 @@ export default function LanguageDropdown({ compact = false }: { compact?: boolea
 				}`}
 				style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--fg)' }}
 			>
-				<FiGlobe size={compact ? 12 : 14} aria-hidden="true" />
+				<IconGlobe size={compact ? 12 : 14} />
 				<span aria-hidden="true">{locale === 'en' ? 'EN' : 'ID'}</span>
-				<FiChevronDown
+				<IconChevronDown
 					size={compact ? 12 : 14}
-					aria-hidden="true"
 					className="transition-transform"
 					style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
 				/>
@@ -122,7 +121,7 @@ export default function LanguageDropdown({ compact = false }: { compact?: boolea
 										</span>
 										{labelFor(opt.value)}
 									</span>
-									{selected && <FiCheck size={14} aria-hidden="true" style={{ color: 'var(--color-primary)' }} />}
+									{selected && <IconCheck size={14} style={{ color: 'var(--color-primary)' }} />}
 								</button>
 							</li>
 						);

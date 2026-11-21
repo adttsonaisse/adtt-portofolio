@@ -65,6 +65,7 @@
 
 html {
 	scroll-behavior: smooth;
+	scrollbar-gutter: stable;
 }
 
 section[id] {
@@ -75,9 +76,6 @@ body {
 	background: linear-gradient(90deg, #0a0a0b 0%, #111827 42%, #1e1b4b 100%);
 	color: var(--fg);
 	font-family: var(--font-sans);
-	transition:
-		background 0.3s ease,
-		color 0.3s ease;
 }
 
 [data-theme='light'] body {
@@ -267,7 +265,7 @@ body {
 	}
 }
 
-/* Splash — satu momen orkestrasi (GSAP, Splash.tsx), tanpa loop CSS.
+/* Splash — satu momen orkestrasi pure CSS/WAAPI (Splash.tsx), tanpa GSAP di entry bundle.
    Background disamakan dengan body supaya wipe ke Hero mulus. */
 .splash {
 	background: linear-gradient(90deg, #0a0a0b 0%, #111827 42%, #1e1b4b 100%);
@@ -276,18 +274,73 @@ body {
 	background: linear-gradient(90deg, #ffffff 0%, #eef2ff 42%, #e0e7ff 100%);
 }
 
-/* Initial state di-set dari JS (gsap.set), bukan CSS, supaya tanpa JS
-   konten tetap kelihatan. */
-.splash-logo,
-.splash-letter,
-.splash-letter-a,
-.splash-line-b,
-.splash-rise,
-.splash-meta,
-.splash-eyebrow,
-.splash-count-wrap,
-.splash-content {
-	will-change: opacity, transform;
+@keyframes splash-fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@keyframes splash-corner-in {
+	from { opacity: 0; transform: scale(0.7); }
+	to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-seal-in {
+	from { opacity: 0; transform: scale(0.86); }
+	to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-rise-sm {
+	from { opacity: 0; transform: translateY(12px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-letter-in {
+	from { opacity: 0; transform: translateY(48px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-line-b-in {
+	from { opacity: 0; transform: translateY(34px); }
+	to { opacity: 0.9; transform: translateY(0); }
+}
+@keyframes splash-stroke-draw {
+	from { stroke-dashoffset: 220; }
+	to { stroke-dashoffset: 0; }
+}
+@keyframes splash-letter-pop {
+	from { opacity: 0; transform: scale(1.26); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+.splash-fade {
+	animation: splash-fade-in 0.3s ease-out both;
+}
+.splash-frame-corner {
+	animation: splash-corner-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both;
+}
+.splash-seal-wrap {
+	animation: splash-seal-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both;
+}
+.splash-eyebrow {
+	animation: splash-rise-sm 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+.splash-letter-a {
+	animation: splash-letter-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) calc(0.1s + var(--i, 0) * 0.032s) both;
+}
+.splash-line-b {
+	animation: splash-line-b-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
+}
+.splash-ledger-line {
+	animation: splash-rise-sm 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
+}
+.splash-meta {
+	animation: splash-rise-sm 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
+}
+.splash-seal-draw {
+	fill: none;
+	stroke: var(--color-secondary);
+	stroke-width: 1.5;
+	stroke-dasharray: 220;
+	stroke-dashoffset: 220;
+	animation: splash-stroke-draw 0.52s cubic-bezier(0.65, 0, 0.35, 1) 0.22s both;
+}
+.splash-seal-letter {
+	animation: splash-letter-pop 0.32s cubic-bezier(0.16, 1, 0.3, 1) 0.48s both;
 }
 
 .splash-outline {
@@ -322,18 +375,39 @@ body {
 	background: radial-gradient(ellipse at center bottom, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 70%);
 }
 
-.splash-grain {
-	opacity: 0.035;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+/* PillNav pure-CSS liquid circle hover — nol GSAP di initial bundle, nol forced reflow saat boot. */
+.pill-nav-link .hover-circle {
+	transform: translateX(-50%) scale(0);
+	transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pill-nav-link:hover .hover-circle,
+.pill-nav-link:focus-visible .hover-circle {
+	transform: translateX(-50%) scale(1.2);
+	transition-duration: 0.3s;
+}
+.pill-nav-link .pill-label {
+	transform: translateY(0);
+	transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pill-nav-link:hover .pill-label,
+.pill-nav-link:focus-visible .pill-label {
+	transform: translateY(calc(-1 * var(--pill-h, 42px) - 8px));
+	transition-duration: 0.3s;
+}
+.pill-nav-link .pill-label-hover {
+	transform: translateY(calc(var(--pill-h, 42px) + 12px));
+	opacity: 0;
+	transition:
+		transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 0.22s ease;
+}
+.pill-nav-link:hover .pill-label-hover,
+.pill-nav-link:focus-visible .pill-label-hover {
+	transform: translateY(0);
+	opacity: 1;
+	transition-duration: 0.3s;
 }
 
-.splash-seal-draw {
-	fill: none;
-	stroke: var(--color-secondary);
-	stroke-width: 1.5;
-	stroke-dasharray: 220;
-	stroke-dashoffset: 220;
-}
 .splash-seal-inner {
 	fill: none;
 	stroke: var(--border);
@@ -377,29 +451,3 @@ body {
    konten tetap kelihatan (no FOUC / no invisible content).
    will-change permanen dihapus — GSAP yang promote layer saat animasi,
    lalu clearProps mengembalikannya. Hemat memori GPU, cegah jank entry. */
-
-@media (prefers-reduced-motion: reduce) {
-	.cursor-dot,
-	.cursor-ring {
-		display: none !important;
-	}
-	.flip-inner {
-		transition: none;
-	}
-	.skill-logo:hover {
-		animation: none;
-	}
-	.toast-pop {
-		animation: none;
-	}
-
-	html {
-		scroll-behavior: auto;
-	}
-
-	section[data-reveal],
-	[data-reveal-item] {
-		opacity: 1 !important;
-		transform: none !important;
-	}
-}

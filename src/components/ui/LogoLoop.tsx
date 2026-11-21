@@ -47,74 +47,6 @@ const toCssLength = (value?: number | string): string | undefined =>
 
 const cx = (...parts: Array<string | false | null | undefined>) => parts.filter(Boolean).join(' ');
 
-const useResizeObserver = (
-  callback: () => void,
-  elements: Array<React.RefObject<Element | null>>,
-  dependencies: React.DependencyList,
-) => {
-  useEffect(() => {
-    if (!window.ResizeObserver) {
-      const handleResize = () => callback();
-      window.addEventListener('resize', handleResize);
-      callback();
-      return () => window.removeEventListener('resize', handleResize);
-    }
-
-    const observers = elements.map((ref) => {
-      if (!ref.current) return null;
-      const observer = new ResizeObserver(callback);
-      observer.observe(ref.current);
-      return observer;
-    });
-
-    callback();
-
-    return () => {
-      observers.forEach((observer) => observer?.disconnect());
-    };
-  }, dependencies);
-};
-
-const useImageLoader = (
-  seqRef: React.RefObject<HTMLUListElement | null>,
-  onLoad: () => void,
-  dependencies: React.DependencyList,
-) => {
-  useEffect(() => {
-    const images = seqRef.current?.querySelectorAll('img') ?? [];
-
-    if (images.length === 0) {
-      onLoad();
-      return;
-    }
-
-    let remainingImages = images.length;
-    const handleImageLoad = () => {
-      remainingImages -= 1;
-      if (remainingImages === 0) {
-        onLoad();
-      }
-    };
-
-    images.forEach((img) => {
-      const htmlImg = img as HTMLImageElement;
-      if (htmlImg.complete) {
-        handleImageLoad();
-      } else {
-        htmlImg.addEventListener('load', handleImageLoad, { once: true });
-        htmlImg.addEventListener('error', handleImageLoad, { once: true });
-      }
-    });
-
-    return () => {
-      images.forEach((img) => {
-        img.removeEventListener('load', handleImageLoad);
-        img.removeEventListener('error', handleImageLoad);
-      });
-    };
-  }, dependencies);
-};
-
 const useAnimationLoop = (
   trackRef: React.RefObject<HTMLDivElement | null>,
   targetVelocity: number,
@@ -133,11 +65,6 @@ const useAnimationLoop = (
     const track = trackRef.current;
     if (!track) return;
 
-    const prefersReduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
     const seqSize = isVertical ? seqHeight : seqWidth;
 
     if (seqSize > 0) {
@@ -148,19 +75,28 @@ const useAnimationLoop = (
       track.style.transform = transformValue;
     }
 
-    if (prefersReduced) {
-      track.style.transform = isVertical ? 'translate3d(0, 0, 0)' : 'translate3d(0, 0, 0)';
-      return () => {
-        lastTimestampRef.current = null;
-      };
-    }
+    let inViewport = true;
+
+    const stopLoop = () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      lastTimestampRef.current = null;
+    };
 
     const animate = (timestamp: number) => {
+      if (!inViewport || document.hidden) {
+        rafRef.current = null;
+        lastTimestampRef.current = null;
+        return;
+      }
+
       if (lastTimestampRef.current === null) {
         lastTimestampRef.current = timestamp;
       }
 
-      const deltaTime = Math.max(0, timestamp - lastTimestampRef.current) / 1000;
+      const deltaTime = Math.min(0.05, Math.max(0, timestamp - lastTimestampRef.current) / 1000);
       lastTimestampRef.current = timestamp;
 
       const target = isHovered && hoverSpeed !== undefined ? hoverSpeed : targetVelocity;
@@ -182,16 +118,40 @@ const useAnimationLoop = (
       rafRef.current = requestAnimationFrame(animate);
     };
 
-    rafRef.current = requestAnimationFrame(animate);
+    const startLoop = () => {
+      if (rafRef.current === null && inViewport && !document.hidden) {
+        lastTimestampRef.current = null;
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => {
+              inViewport = entries[0]?.isIntersecting ?? true;
+              if (inViewport) startLoop();
+              else stopLoop();
+            },
+            { rootMargin: '100px 0px', threshold: 0 },
+          )
+        : null;
+    io?.observe(track.parentElement ?? track);
+
+    const onVis = () => {
+      if (document.hidden) stopLoop();
+      else startLoop();
+    };
+    document.addEventListener('visibilitychange', onVis);
+
+    startLoop();
 
     return () => {
-      if (rafRef.current !== null) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      lastTimestampRef.current = null;
+      io?.disconnect();
+      document.removeEventListener('visibilitychange', onVis);
+      stopLoop();
     };
-  }, [targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical]);
+  }, [trackRef, targetVelocity, seqWidth, seqHeight, isHovered, hoverSpeed, isVertical]);
 };
 
 export const LogoLoop = React.memo<LogoLoopProps>(
@@ -267,9 +227,61 @@ export const LogoLoop = React.memo<LogoLoopProps>(
       }
     }, [isVertical]);
 
-    useResizeObserver(updateDimensions, [containerRef, seqRef], [logos, gap, logoHeight, isVertical]);
+    useEffect(() => {
+      if (!window.ResizeObserver) {
+        const handleResize = () => updateDimensions();
+        window.addEventListener('resize', handleResize);
+        updateDimensions();
+        return () => window.removeEventListener('resize', handleResize);
+      }
 
-    useImageLoader(seqRef, updateDimensions, [logos, gap, logoHeight, isVertical]);
+      const observers = [containerRef, seqRef].map((ref) => {
+        if (!ref.current) return null;
+        const observer = new ResizeObserver(updateDimensions);
+        observer.observe(ref.current);
+        return observer;
+      });
+
+      updateDimensions();
+
+      return () => {
+        observers.forEach((observer) => observer?.disconnect());
+      };
+    }, [updateDimensions, logos, gap, logoHeight, isVertical]);
+
+    useEffect(() => {
+      const images = seqRef.current?.querySelectorAll('img') ?? [];
+
+      if (images.length === 0) {
+        updateDimensions();
+        return;
+      }
+
+      let remainingImages = images.length;
+      const handleImageLoad = () => {
+        remainingImages -= 1;
+        if (remainingImages === 0) {
+          updateDimensions();
+        }
+      };
+
+      images.forEach((img) => {
+        const htmlImg = img as HTMLImageElement;
+        if (htmlImg.complete) {
+          handleImageLoad();
+        } else {
+          htmlImg.addEventListener('load', handleImageLoad, { once: true });
+          htmlImg.addEventListener('error', handleImageLoad, { once: true });
+        }
+      });
+
+      return () => {
+        images.forEach((img) => {
+          img.removeEventListener('load', handleImageLoad);
+          img.removeEventListener('error', handleImageLoad);
+        });
+      };
+    }, [updateDimensions, logos, gap, logoHeight, isVertical]);
 
     useAnimationLoop(trackRef, targetVelocity, seqWidth, seqHeight, isHovered, effectiveHoverSpeed, isVertical);
 
@@ -287,7 +299,7 @@ export const LogoLoop = React.memo<LogoLoopProps>(
       () =>
         cx(
           'relative group',
-          isVertical ? 'overflow-hidden h-full inline-block' : 'overflow-x-hidden',
+          isVertical ? 'overflow-hidden h-full inline-block' : 'overflow-x-clip',
           '[--logoloop-gap:32px]',
           '[--logoloop-logoHeight:28px]',
           '[--logoloop-fadeColorAuto:#ffffff]',

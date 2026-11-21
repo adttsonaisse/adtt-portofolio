@@ -1,7 +1,7 @@
 /**
  * Progress loading aset nyata untuk Splash.
- * App mendaftarkan aset (img/fetch); Splash berlangganan progress 0..1.
- * Tanpa dependensi. Aman dipanggil berkali-kali (idempoten per URL).
+ * App mendaftarkan aset (img/fetch/elemen DOM); Splash berlangganan progress 0..1.
+ * Tanpa dependensi. Aman dipanggil berkali-kali (idempoten per kunci).
  */
 
 type Listener = (p: number) => void;
@@ -22,9 +22,9 @@ function emit() {
 	}
 }
 
-function markDone(url: string) {
-	if (seen.has(url)) return;
-	seen.add(url);
+function markDone(key: string) {
+	if (seen.has(key)) return;
+	seen.add(key);
 	done += 1;
 	emit();
 }
@@ -56,6 +56,27 @@ export function begin(jobs: AssetJob[]) {
 			markDone(url);
 		}
 	}
+}
+
+/**
+ * Pantau <img> yang sudah ada di DOM tanpa mengunduh gambar duplikat
+ * (mencegah request ganda ketika <picture srcset> memilih AVIF/WebP sendiri).
+ */
+export function trackImage(key: string, img: HTMLImageElement | null) {
+	if (seen.has(key)) return;
+	total += 1;
+	if (!img || img.complete) {
+		markDone(key);
+		return;
+	}
+	emit();
+	const onEnd = () => {
+		img.removeEventListener('load', onEnd);
+		img.removeEventListener('error', onEnd);
+		markDone(key);
+	};
+	img.addEventListener('load', onEnd, { once: true });
+	img.addEventListener('error', onEnd, { once: true });
 }
 
 export function getProgress(): number {

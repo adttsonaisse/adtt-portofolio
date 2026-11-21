@@ -7,6 +7,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useSectionReveal } from '../../hooks/useSectionReveal';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
+import { useMagnet } from '../../hooks/useMagnet';
 import { burst } from '../../lib/particles';
 
 const SIZE = 76;
@@ -29,6 +30,7 @@ const _link = <FiLink size={18} />;
 
 export default function Contact() {
 	const sectionRef = useSectionReveal<HTMLElement>();
+	const ctaRef = useMagnet<HTMLAnchorElement>();
 	const [copied, setCopied] = useState(false);
 	const groupRef = useRef<HTMLDivElement>(null);
 	const { theme } = useTheme();
@@ -37,12 +39,16 @@ export default function Contact() {
 	const email = site[locale].links.email.replace('mailto:', '');
 	const [toast, setToast] = useState<{ msg: string; key: number } | null>(null);
 	const toastTimer = useRef(0);
+	const copyTimer = useRef(0);
 	const showToast = (msg: string) => {
 		window.clearTimeout(toastTimer.current);
 		setToast({ msg, key: Date.now() });
 		toastTimer.current = window.setTimeout(() => setToast(null), 1600);
 	};
-	useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+	useEffect(() => () => {
+		window.clearTimeout(toastTimer.current);
+		window.clearTimeout(copyTimer.current);
+	}, []);
 	const copy = () => {
 		try {
 			navigator.clipboard?.writeText(email);
@@ -51,7 +57,8 @@ export default function Contact() {
 		}
 		setCopied(true);
 		showToast(m.contact.copied);
-		setTimeout(() => setCopied(false), 1800);
+		window.clearTimeout(copyTimer.current);
+		copyTimer.current = window.setTimeout(() => setCopied(false), 1800);
 	};
 
   // href nyata per node. facebook ("Adttnewbie" = nama, bukan username),
@@ -78,7 +85,6 @@ export default function Contact() {
   useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
     let target = 1;
     let current = 1;
@@ -144,7 +150,6 @@ export default function Contact() {
   useEffect(() => {
     const group = groupRef.current;
     if (!group) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (window.matchMedia('(hover: none), (pointer: coarse)').matches) return;
 
     const RADIUS_PX = 150;
@@ -243,6 +248,7 @@ export default function Contact() {
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <a
+                ref={ctaRef}
                 href={site[locale].links.email}
                 className="inline-flex items-center gap-3 rounded-full px-2 py-2 pr-6 text-sm font-semibold transition"
                 style={{ background: 'var(--fg)', color: 'var(--bg)' }}
@@ -262,7 +268,7 @@ export default function Contact() {
             </div>
           </div>
 
-          <div ref={groupRef} data-reveal-item className="group relative mx-auto flex h-[420px] w-full max-w-[520px] items-center justify-center overflow-clip md:h-[500px] md:max-w-none">
+          <div ref={groupRef} data-reveal-item className="group relative mx-auto flex h-[480px] w-full max-w-[520px] items-center justify-center overflow-visible md:h-[500px] md:max-w-none">
             <div className="pointer-events-none absolute rounded-full border" style={{ width: RADIUS * 2, height: RADIUS * 2, borderColor: 'var(--border)', opacity: 0.9 }} />
             <div className="pointer-events-none absolute rounded-full border border-dashed" style={{ width: RADIUS * 2 + 46, height: RADIUS * 2 + 46, borderColor: 'var(--border)', opacity: 0.5 }} />
             <div className="pointer-events-none absolute rounded-full blur-3xl" style={{ width: 220, height: 220, background: 'radial-gradient(circle, rgba(88,85,246,0.14) 0%, transparent 70%)' }} aria-hidden />
@@ -334,7 +340,7 @@ export default function Contact() {
                 );
               })}
             </div>
-            <style>{`@keyframes orbitSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes orbitCounter { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } } .orbit-rotor { animation: orbitSpin 42s linear infinite; } .orbit-node { animation: orbitCounter 42s linear infinite; } @media (prefers-reduced-motion: reduce) { .orbit-rotor, .orbit-node { animation: none !important; } }`}</style>
+            <style>{`@keyframes orbitSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } } @keyframes orbitCounter { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } } .orbit-rotor { animation: orbitSpin 42s linear infinite; } .orbit-node { animation: orbitCounter 42s linear infinite; }`}</style>
             <span className="hidden">{_link}</span>
             {/* Toast playful — mis. konfirmasi email tersalin. */}
             {toast && (

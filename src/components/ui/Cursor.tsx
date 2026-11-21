@@ -17,12 +17,32 @@ export default function Cursor() {
 		const ring = ringRef.current;
 		if (!dot || !ring) return;
 		if (window.matchMedia('(hover: none), (pointer: coarse)').matches) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
 		const pos = { x: -100, y: -100 };
 		const ringPos = { x: -100, y: -100 };
 		let raf = 0;
 		let visible = false;
+
+		const loop = () => {
+			raf = 0;
+			if (document.hidden || !visible) return;
+			const dx = pos.x - ringPos.x;
+			const dy = pos.y - ringPos.y;
+			ringPos.x += dx * 0.16;
+			ringPos.y += dy * 0.16;
+			const hot = ring.dataset.hot === '1';
+			const s = hot ? 1.9 : 1;
+			ring.style.transform = `translate3d(${ringPos.x.toFixed(1)}px, ${ringPos.y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${s})`;
+			if (Math.abs(dx) > 0.15 || Math.abs(dy) > 0.15) {
+				raf = requestAnimationFrame(loop);
+			}
+		};
+
+		const kick = () => {
+			if (!raf && visible && !document.hidden) {
+				raf = requestAnimationFrame(loop);
+			}
+		};
 
 		const show = () => {
 			if (visible) return;
@@ -35,6 +55,10 @@ export default function Cursor() {
 			visible = false;
 			dot.style.opacity = '0';
 			ring.style.opacity = '0';
+			if (raf) {
+				cancelAnimationFrame(raf);
+				raf = 0;
+			}
 		};
 
 		const onMove = (e: PointerEvent) => {
@@ -42,45 +66,41 @@ export default function Cursor() {
 				hide();
 				return;
 			}
+			if (!visible) {
+				ringPos.x = e.clientX;
+				ringPos.y = e.clientY;
+			}
 			pos.x = e.clientX;
 			pos.y = e.clientY;
 			show();
-			dot.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -50%)`;
+			dot.style.transform = `translate3d(${pos.x}px, ${pos.y}px, 0) translate(-50%, -50%)`;
+			kick();
 		};
 
 		const onOver = (e: MouseEvent) => {
 			const t = e.target as Element | null;
 			const hot = !!t?.closest?.(INTERACTIVE);
-			ring.dataset.hot = hot ? '1' : '';
-		};
-
-		const loop = () => {
-			ringPos.x += (pos.x - ringPos.x) * 0.16;
-			ringPos.y += (pos.y - ringPos.y) * 0.16;
-			const hot = ring.dataset.hot === '1';
-			const s = hot ? 1.9 : 1;
-			ring.style.transform = `translate(${ringPos.x}px, ${ringPos.y}px) translate(-50%, -50%) scale(${s})`;
-			raf = requestAnimationFrame(loop);
+			const next = hot ? '1' : '';
+			if (ring.dataset.hot !== next) {
+				ring.dataset.hot = next;
+				kick();
+			}
 		};
 
 		document.addEventListener('pointermove', onMove, { passive: true });
 		document.addEventListener('mouseover', onOver, { passive: true });
 		document.documentElement.addEventListener('mouseleave', hide);
-		raf = requestAnimationFrame(loop);
 
-		// Pause saat tab disembunyikan — hemat baterai.
 		const onVis = () => {
-			if (document.hidden) {
+			if (document.hidden && raf) {
 				cancelAnimationFrame(raf);
 				raf = 0;
-			} else if (!raf) {
-				raf = requestAnimationFrame(loop);
 			}
 		};
 		document.addEventListener('visibilitychange', onVis);
 
 		return () => {
-			cancelAnimationFrame(raf);
+			if (raf) cancelAnimationFrame(raf);
 			document.removeEventListener('pointermove', onMove);
 			document.removeEventListener('mouseover', onOver);
 			document.documentElement.removeEventListener('mouseleave', hide);

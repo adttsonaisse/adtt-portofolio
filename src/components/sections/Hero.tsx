@@ -1,22 +1,25 @@
-import { useRef, useState } from 'react';
-import { FaGithub, FaLinkedinIn } from 'react-icons/fa';
-import { FiMail } from 'react-icons/fi';
+import { useEffect, useRef, useState } from 'react';
+import { IconGitHub, IconLinkedIn, IconMail } from '../ui/Icons';
 import { site } from '../../data/site';
 import DepthText from '../ui/DepthText';
 import { useTheme } from '../../hooks/useTheme';
 import { useSectionReveal } from '../../hooks/useSectionReveal';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
+import { useMagnet } from '../../hooks/useMagnet';
 import { burst } from '../../lib/particles';
 
 export default function Hero() {
 	const ref = useSectionReveal<HTMLElement>({ immediate: true, y: 16, itemY: 12, duration: 0.7, stagger: 0.08 });
+	const ctaRef = useMagnet<HTMLAnchorElement>();
 	const { theme } = useTheme();
 	const { locale } = useLanguage();
 	const m = useMessages(locale);
 	const siteData = site[locale];
 	const spotlightRef = useRef<HTMLDivElement>(null);
 	const rafRef = useRef(0);
+	// Tunda mount layer warna overlay sampai hover/tap atau idle agar initial paint hanya decode 1 gambar.
+	const [overlayReady, setOverlayReady] = useState(false);
 	// Gelombang huruf: naik tiap klik pada nama.
 	const [wave, setWave] = useState(0);
 	const fireWave = (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -65,6 +68,7 @@ export default function Hero() {
 	};
 
 	const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+		if (!overlayReady) setOverlayReady(true);
 		const el = spotlightRef.current ?? e.currentTarget;
 		const s = spotRef.current;
 		s.hovering = true;
@@ -84,6 +88,7 @@ export default function Hero() {
 
 	// Touch: tap memunculkan lingkaran 1 detik di titik tap.
 	const onTouch = (e: React.TouchEvent<HTMLDivElement>) => {
+		if (!overlayReady) setOverlayReady(true);
 		const el = spotlightRef.current ?? e.currentTarget;
 		const s = spotRef.current;
 		const t = e.touches[0];
@@ -102,6 +107,16 @@ export default function Hero() {
 			spotKick();
 		}, 1000);
 	};
+
+	useEffect(() => {
+		const s = spotRef.current;
+		const warmTimer = window.setTimeout(() => setOverlayReady(true), 1200);
+		return () => {
+			window.clearTimeout(warmTimer);
+			if (rafRef.current) cancelAnimationFrame(rafRef.current);
+			window.clearTimeout(s.hideTimer);
+		};
+	}, []);
 
 	return (
 		<section id="home" ref={ref} data-reveal className="relative overflow-hidden" style={{ scrollMarginTop: 80 }}>
@@ -141,7 +156,7 @@ export default function Hero() {
 								<span
 									role="button"
 									tabIndex={0}
-									aria-label="Play letter wave"
+									aria-label="ADITYA, play letter wave"
 									onClick={fireWave}
 									onKeyDown={(e) => {
 										if (e.key === 'Enter' || e.key === ' ') {
@@ -155,13 +170,14 @@ export default function Hero() {
 										<DepthText
 											key={`${ch}-${i}`}
 											text={ch}
-											layers={14}
-											depth={1.4}
+											layers={8}
+											depth={2}
 											faceColor={theme === 'light' ? '#0a0a0b' : '#fafafa'}
 											depthColor="#5855F6"
 											tilt={5}
 											pointerTracking
-											autoOrbit={false}
+											autoOrbit
+											orbitSpeed={0.22}
 											smoothing={0.12}
 											perspective={900}
 											fontSize="1em"
@@ -178,6 +194,7 @@ export default function Hero() {
 							{/* Satu-satunya panah dekoratif-bertujuan di halaman:
 							    isyarat arah ke #contact. Tombol lain tidak memakai panah. */}
 							<a
+								ref={ctaRef}
 								href="#contact"
 								className="mt-7 inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold text-white transition hover:brightness-[0.96]"
 								style={{ background: '#5855F6', boxShadow: 'var(--shadow-lift)' }}
@@ -197,7 +214,7 @@ export default function Hero() {
 						</p>
 					</div>
 
-					<div className="relative col-span-12 flex items-end justify-center md:col-span-6" data-reveal-item>
+					<div className="relative col-span-12 flex items-end justify-center md:col-span-6">
 						<div
 							className="pointer-events-none absolute bottom-0 left-1/2 h-[74%] w-[92%] -translate-x-1/2 rounded-t-[28px] opacity-60"
 							style={{
@@ -208,7 +225,7 @@ export default function Hero() {
 
 						<div
 							ref={spotlightRef}
-							className="hero-reveal group relative z-10 block w-95 cursor-crosshair md:w-125 lg:w-145"
+							className="hero-reveal group relative z-10 block aspect-[900/1273] w-95 cursor-crosshair md:w-125 lg:w-145"
 							style={
 								{
 									'--x': '50%',
@@ -222,9 +239,18 @@ export default function Hero() {
 							onTouchStart={onTouch}
 						>
 							<picture>
-								<source srcSet="/adtt-600.webp 600w, /adtt.webp 900w" type="image/webp" />
+								<source
+									srcSet="/adtt-600.avif 600w, /adtt.avif 900w"
+									sizes="(max-width: 767px) 340px, (max-width: 1023px) 500px, 580px"
+									type="image/avif"
+								/>
+								<source
+									srcSet="/adtt-600.webp 600w, /adtt.webp 900w"
+									sizes="(max-width: 767px) 340px, (max-width: 1023px) 500px, 580px"
+									type="image/webp"
+								/>
 								<img
-									src="/adtt.png"
+									src="/adtt-600.webp"
 									alt={`Portrait of ${siteData.name}`}
 									width={900}
 									height={1273}
@@ -235,19 +261,30 @@ export default function Hero() {
 									draggable={false}
 								/>
 							</picture>
-							<picture className="hero-overlay absolute inset-0" aria-hidden="true">
-								<source srcSet="/adtt-600.webp 600w, /adtt.webp 900w" type="image/webp" />
-								<img
-									src="/adtt.png"
-									alt=""
-									width={900}
-									height={1273}
-									className="h-auto w-full object-contain object-bottom"
-									loading="eager"
-									decoding="async"
-									draggable={false}
-								/>
-							</picture>
+							{overlayReady && (
+								<picture className="hero-overlay absolute inset-0" aria-hidden="true">
+									<source
+										srcSet="/adtt-600.avif 600w, /adtt.avif 900w"
+										sizes="(max-width: 767px) 340px, (max-width: 1023px) 500px, 580px"
+										type="image/avif"
+									/>
+									<source
+										srcSet="/adtt-600.webp 600w, /adtt.webp 900w"
+										sizes="(max-width: 767px) 340px, (max-width: 1023px) 500px, 580px"
+										type="image/webp"
+									/>
+									<img
+										src="/adtt-600.webp"
+										alt=""
+										width={900}
+										height={1273}
+										className="h-auto w-full object-contain object-bottom"
+										loading="eager"
+										decoding="async"
+										draggable={false}
+									/>
+								</picture>
+							)}
 						</div>
 					</div>
 
@@ -258,9 +295,9 @@ export default function Hero() {
 							</p>
 							<div className="mt-3 flex gap-2.5 md:justify-end">
 								{[
-									{ label: 'GitHub', href: siteData.links.github, Icon: FaGithub },
-									{ label: 'LinkedIn', href: siteData.links.linkedin, Icon: FaLinkedinIn },
-									{ label: 'Email', href: siteData.links.email, Icon: FiMail },
+									{ label: 'GitHub', href: siteData.links.github, Icon: IconGitHub },
+									{ label: 'LinkedIn', href: siteData.links.linkedin, Icon: IconLinkedIn },
+									{ label: 'Email', href: siteData.links.email, Icon: IconMail },
 								].map(({ label, href, Icon }) => (
 									<a
 										key={label}
@@ -313,12 +350,8 @@ export default function Hero() {
         }
         /* Tap di touch: lingkaran 1 detik (diatur via onTouch) — overlay
            tidak disembunyikan agar reveal tetap jalan. */
-        /* Reduced-motion: tanpa lingkaran, foto tampil berwarna penuh statis. */
-        @media (prefers-reduced-motion: reduce) {
-          .hero-overlay { transition: none; display: block; opacity: 1; mask-image: none; -webkit-mask-image: none; }
-        }
-        [data-theme='dark'] section div[aria-hidden] p { color: rgba(129,140,248,0.09) !important; }
-        [data-theme='light'] section div[aria-hidden] p { color: rgba(88, 85, 246, 0.06) !important; }
+        [data-theme='dark'] #home div[aria-hidden] p { color: rgba(129,140,248,0.09) !important; }
+        [data-theme='light'] #home div[aria-hidden] p { color: rgba(88, 85, 246, 0.06) !important; }
       `}</style>
 		</section>
 	);

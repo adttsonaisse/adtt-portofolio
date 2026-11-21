@@ -1,34 +1,42 @@
-import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
+import { useEffect, useRef, type CSSProperties } from 'react';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
 import { getProgress, subscribe } from '../../lib/loadProgress';
 import { burst } from '../../lib/particles';
 
-const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
-const LOAD_TIMEOUT = 6000;
+const LOAD_TIMEOUT = 4500;
+const MIN_HOLD = 680;
+const COUNT_DURATION = 620;
 
 type Props = {
 	onDone: () => void;
 };
 
 /**
- * Splash — midnight atelier (satu momen orkestrasi + playful).
+ * Splash — midnight atelier (pure CSS + WAAPI, 0KB GSAP di initial bundle).
  * Segel + wordmark + garis ledger (fase · N°) masuk; counter & bar mengikuti
  * loading aset ASLI (loadProgress), wipe ke atas setelah intro + aset siap.
  * Segel bisa di-klik (stamp pop + burst). Klik lain / Esc = skip.
  * Muncul sekali per session (diatur dari App via sessionStorage).
- * Reduced-motion: selesai instan. Tanpa loop CSS — semua gerak milik GSAP.
  */
 export default function Splash({ onDone }: Props) {
 	const { locale } = useLanguage();
 	const m = useMessages(locale);
 	const rootRef = useRef<HTMLDivElement>(null);
+	const contentRef = useRef<HTMLDivElement>(null);
 	const countRef = useRef<HTMLSpanElement>(null);
 	const phaseRef = useRef<HTMLSpanElement>(null);
 	const barRef = useRef<HTMLDivElement>(null);
+	const barFillRef = useRef<HTMLSpanElement>(null);
+	const sealLetterRef = useRef<HTMLSpanElement>(null);
 	const doneRef = useRef(onDone);
+	const phasesRef = useRef(m.splash.phases);
+	const skipRef = useRef<(() => void) | null>(null);
 	const finishedRef = useRef(false);
+
+	useEffect(() => {
+		phasesRef.current = m.splash.phases;
+	}, [m.splash.phases]);
 
 	useEffect(() => {
 		doneRef.current = onDone;
@@ -41,117 +49,108 @@ export default function Splash({ onDone }: Props) {
 			doneRef.current();
 		};
 
-		if (window.matchMedia(REDUCED_QUERY).matches) {
-			finish();
-			return;
-		}
+		let shown = 0;
+		const startTime = performance.now();
+		let rafId = 0;
+		let gated = false;
+		const exitAnims: Animation[] = [];
 
-		const counter = { v: 0 };
-		const shown = { v: 0 };
-		const phases = m.splash.phases;
-		const barEl = () => el.querySelector<HTMLElement>('.splash-bar');
 		const renderCount = () => {
-			const n = Math.round(shown.v);
+			const phases = phasesRef.current;
+			const n = Math.round(shown);
 			if (countRef.current) countRef.current.textContent = n.toString().padStart(3, '0');
 			if (phaseRef.current) {
 				phaseRef.current.textContent = n < 45 ? phases[0] : n < 100 ? phases[1] : phases[2];
 			}
 			if (barRef.current) barRef.current.setAttribute('aria-valuenow', String(n));
-			const bar = barEl();
-			if (bar) bar.style.transform = `scaleX(${Math.min(1, shown.v / 100)})`;
-		};
-		// Counter mengikuti loading aset asli (monoton naik; fallback timer
-		// bila aset lebih cepat dari animasi masuk).
-		const tickProgress = () => {
-			const real = Math.round(getProgress() * 100);
-			const floor = Math.min(100, counter.v);
-			const target = Math.max(real, floor);
-			if (target > shown.v) {
-				shown.v = target;
-				renderCount();
+			if (barFillRef.current) {
+				barFillRef.current.style.transform = `scaleX(${Math.min(1, shown / 100)})`;
 			}
 		};
-		const tickerCb = () => tickProgress();
-		gsap.ticker.add(tickerCb);
-		const unsub = subscribe(() => tickProgress());
 
-		let exitTl: gsap.core.Timeline | null = null;
-		let gated = false;
-		const playExit = () => {
+		const playExit = (fast = false) => {
 			if (gated || finishedRef.current) return;
 			gated = true;
-			shown.v = 100;
-			renderCount();
-			exitTl = gsap.timeline({ onComplete: finish });
-			exitTl
-				.to('.splash-content', { y: -64, duration: 0.55, ease: 'power3.in' }, 0)
-				.to(el, { yPercent: -100, duration: 0.65, ease: 'power4.inOut' }, 0);
-		};
-		// Gerbang keluar: visual intro selesai + aset termuat (atau timeout).
-		const startTime = performance.now();
-		const gateTimer = window.setInterval(() => {
-			const minHold = performance.now() - startTime > 1900;
-			if ((getProgress() >= 1 && minHold) || performance.now() - startTime > LOAD_TIMEOUT) {
-				window.clearInterval(gateTimer);
-				playExit();
+			if (rafId) {
+				cancelAnimationFrame(rafId);
+				rafId = 0;
 			}
-		}, 120);
+			shown = 100;
+			renderCount();
+			const dur = fast ? 320 : 400;
+			if (typeof el.animate !== 'function') {
+				finish();
+				return;
+			}
+			if (contentRef.current && typeof contentRef.current.animate === 'function') {
+				exitAnims.push(
+					contentRef.current.animate(
+						[{ transform: 'translate3d(0, 0, 0)' }, { transform: 'translate3d(0, -48px, 0)' }],
+						{ duration: dur, easing: 'cubic-bezier(0.55, 0.055, 0.675, 0.19)', fill: 'forwards' },
+					),
+				);
+			}
+			const curtain = el.animate(
+				[{ transform: 'translate3d(0, 0%, 0)' }, { transform: 'translate3d(0, -100%, 0)' }],
+				{ duration: dur, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'forwards' },
+			);
+			exitAnims.push(curtain);
+			curtain.onfinish = finish;
+			curtain.oncancel = finish;
+		};
 
-		const ctx = gsap.context(() => {
-			const tl = gsap.timeline({
-				defaults: { ease: 'power4.out' },
-				onComplete: () => {
-					// Intro selesai — tunggu gerbang (min hold + aset) sebelum wipe.
-					const wait = () => {
-						if (gated || finishedRef.current) return;
-						if (getProgress() >= 1 && performance.now() - startTime > 1900) playExit();
-						else gsap.delayedCall(0.12, wait);
-					};
-					wait();
-				},
-			});
-			tl.fromTo('.splash-fade', { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.45, stagger: 0.05 }, 0)
-				.fromTo('.splash-frame-corner', { autoAlpha: 0, scale: 0.7 }, { autoAlpha: 1, scale: 1, duration: 0.45, stagger: 0.05 }, 0.05)
-				// Act I — identitas (0.1 → 1.1)
-				.fromTo('.splash-seal-wrap', { autoAlpha: 0, scale: 0.86 }, { autoAlpha: 1, scale: 1, duration: 0.5 }, 0.1)
-				.fromTo('.splash-eyebrow', { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.4 }, 0.15)
-				.fromTo('.splash-letter-a', { autoAlpha: 0, y: 64 }, { autoAlpha: 1, y: 0, duration: 0.6, stagger: 0.05 }, 0.25)
-				.fromTo('.splash-line-b', { autoAlpha: 0, y: 46 }, { autoAlpha: 1, y: 0, duration: 0.6 }, 0.45)
-				// Act II — ledger + segel (lantai timer agar bar tidak diam
-				// bila aset memuat lebih cepat dari koreografi)
-				.to(counter, { v: 100, duration: 1.6, ease: 'power2.inOut' }, 0.5)
-				.fromTo('.splash-ledger-line', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.35 }, 0.6)
-				.fromTo('.splash-meta', { autoAlpha: 0, y: 10 }, { autoAlpha: 1, y: 0, duration: 0.35, stagger: 0.07 }, 0.65)
-				.to('.splash-seal-draw', { strokeDashoffset: 0, duration: 0.8, ease: 'power2.inOut' }, 0.7)
-				.fromTo('.splash-seal-letter', { autoAlpha: 0, scale: 1.35 }, { autoAlpha: 1, scale: 1, duration: 0.4, ease: 'expo.out' }, 1.3);
-		}, el);
+		const tick = (now: number) => {
+			rafId = 0;
+			if (gated || finishedRef.current) return;
+			const elapsed = now - startTime;
+			const t = Math.min(1, elapsed / COUNT_DURATION);
+			// easeInOutQuad
+			const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+			const floor = Math.min(100, eased * 100);
+			const real = Math.round(getProgress() * 100);
+			const target = Math.max(real, floor);
+			if (target > shown) {
+				shown = target;
+				renderCount();
+			}
+			if ((getProgress() >= 1 && elapsed >= MIN_HOLD) || elapsed >= LOAD_TIMEOUT) {
+				playExit(false);
+				return;
+			}
+			rafId = requestAnimationFrame(tick);
+		};
+
 		renderCount();
+		rafId = requestAnimationFrame(tick);
+		const unsub = subscribe(() => {
+			if (!rafId && !gated && !finishedRef.current) {
+				rafId = requestAnimationFrame(tick);
+			}
+		});
 
-		const onClick = () => {
-			ctx.kill();
-			exitTl?.kill();
-			window.clearInterval(gateTimer);
-			if (finishedRef.current) return;
-			gsap.to(el, { yPercent: -100, duration: 0.4, ease: 'power3.inOut', onComplete: finish });
-		};
+		const skip = () => playExit(true);
+		skipRef.current = skip;
+
 		const onKey = (e: KeyboardEvent) => {
-			// Jangan skip saat fokus di tombol segel — Enter/Space di sana = stamp.
 			if ((e.target as HTMLElement | null)?.closest?.('.splash-seal-btn')) return;
-			if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') onClick();
+			if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') skip();
 		};
-		el.addEventListener('click', onClick);
+		el.addEventListener('click', skip);
 		window.addEventListener('keydown', onKey);
 
 		return () => {
-			el.removeEventListener('click', onClick);
+			skipRef.current = null;
+			el.removeEventListener('click', skip);
 			window.removeEventListener('keydown', onKey);
-			window.clearInterval(gateTimer);
-			gsap.ticker.remove(tickerCb);
+			if (rafId) cancelAnimationFrame(rafId);
 			unsub();
-			exitTl?.kill();
-			ctx.revert();
+			exitAnims.forEach((a) => {
+				a.onfinish = null;
+				a.oncancel = null;
+				a.cancel();
+			});
 		};
-	}, [onDone, m.splash.phases]);
+	}, [onDone]);
 
 	return (
 		<div
@@ -164,7 +163,6 @@ export default function Splash({ onDone }: Props) {
 			{/* bingkai atelier + satu glow bawah (cerminan Hero) */}
 			<div className="splash-fade splash-orb splash-orb-a pointer-events-none absolute" aria-hidden="true" />
 			<div className="splash-fade splash-vignette pointer-events-none absolute inset-0" aria-hidden="true" />
-			<div className="splash-fade splash-grain pointer-events-none absolute inset-0" aria-hidden="true" />
 			<span className="splash-frame-corner tl" aria-hidden="true" />
 			<span className="splash-frame-corner tr" aria-hidden="true" />
 			<span className="splash-frame-corner bl" aria-hidden="true" />
@@ -177,7 +175,7 @@ export default function Splash({ onDone }: Props) {
 			</div>
 
 			{/* konten utama */}
-			<div className="splash-content relative flex flex-1 flex-col items-center justify-center px-5 text-center sm:px-10">
+			<div ref={contentRef} className="splash-content relative flex flex-1 flex-col items-center justify-center px-5 text-center sm:px-10">
 				{/* Segel bisa di-stamp: klik = pop + semburan (bukan skip). */}
 				<button
 					type="button"
@@ -186,10 +184,20 @@ export default function Splash({ onDone }: Props) {
 					onClick={(e) => {
 						e.stopPropagation();
 						const wrap = e.currentTarget;
-						gsap.fromTo(wrap, { scale: 1, autoAlpha: 1 }, { scale: 0.84, autoAlpha: 1, duration: 0.09, ease: 'power2.in', overwrite: 'auto', onComplete: () => {
-							gsap.to(wrap, { scale: 1, autoAlpha: 1, duration: 0.55, ease: 'elastic.out(1, 0.38)', overwrite: 'auto' });
-						} });
-						gsap.fromTo('.splash-seal-letter', { rotate: 0 }, { rotate: 8, duration: 0.09, yoyo: true, repeat: 1, ease: 'power2.inOut', overwrite: 'auto' });
+						wrap.animate?.(
+							[
+								{ transform: 'scale(1)' },
+								{ transform: 'scale(0.84)', offset: 0.16 },
+								{ transform: 'scale(1.06)', offset: 0.55 },
+								{ transform: 'scale(0.98)', offset: 0.8 },
+								{ transform: 'scale(1)' },
+							],
+							{ duration: 480, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' },
+						);
+						sealLetterRef.current?.animate?.(
+							[{ transform: 'rotate(0deg)' }, { transform: 'rotate(8deg)' }, { transform: 'rotate(0deg)' }],
+							{ duration: 180, easing: 'ease-in-out' },
+						);
 						burst(e.clientX || window.innerWidth / 2, e.clientY || window.innerHeight / 2, { count: 22 });
 					}}
 				>
@@ -197,7 +205,7 @@ export default function Splash({ onDone }: Props) {
 						<circle cx="48" cy="48" r="34" className="splash-seal-inner" />
 						<circle cx="48" cy="48" r="34" className="splash-seal-draw" transform="rotate(-90 48 48)" />
 					</svg>
-					<span className="splash-seal-letter inline-block font-black" style={{ color: 'var(--hero-heading)', fontSize: '2rem' }}>A</span>
+					<span ref={sealLetterRef} className="splash-seal-letter inline-block font-black" style={{ color: 'var(--hero-heading)', fontSize: '2rem' }}>A</span>
 				</button>
 				<p className="splash-eyebrow mt-5 italic" style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: 'var(--hero-muted)', fontSize: '1.05rem', letterSpacing: '0.04em' }}>
 					{m.splash.brand}
@@ -206,7 +214,7 @@ export default function Splash({ onDone }: Props) {
 					<span className="block overflow-hidden">
 						<span className="block text-[clamp(3rem,12vw,8rem)]" style={{ color: 'var(--hero-heading)' }}>
 							{'ADITYA'.split('').map((ch, i) => (
-								<span key={i} className="splash-letter-a" style={{ display: 'inline-block' }}>{ch}</span>
+								<span key={i} className="splash-letter-a" style={{ display: 'inline-block', '--i': i } as CSSProperties}>{ch}</span>
 							))}
 						</span>
 					</span>
@@ -236,9 +244,7 @@ export default function Splash({ onDone }: Props) {
 					type="button"
 					onClick={(e) => {
 						e.stopPropagation();
-						if (finishedRef.current) return;
-						finishedRef.current = true;
-						doneRef.current();
+						skipRef.current?.();
 					}}
 					className="rounded-full border px-4 py-1.5 transition hover:opacity-80"
 					style={{ borderColor: 'var(--border)', color: 'var(--hero-heading)' }}
@@ -256,7 +262,7 @@ export default function Splash({ onDone }: Props) {
 				className="absolute inset-x-0 bottom-0 h-[2px]"
 				style={{ background: 'var(--border)' }}
 			>
-				<span className="splash-bar block h-full w-full origin-left" style={{ transform: 'scaleX(0)' }} aria-hidden="true" />
+				<span ref={barFillRef} className="splash-bar block h-full w-full origin-left" style={{ transform: 'scaleX(0)' }} aria-hidden="true" />
 			</div>
 		</div>
 	);

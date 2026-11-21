@@ -6,7 +6,6 @@ export function useTilt<T extends HTMLElement>() {
 	useEffect(() => {
 		const node = ref.current;
 		if (!node) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
 		let rect: DOMRect | null = null;
 

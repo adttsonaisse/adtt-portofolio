@@ -1,7 +1,7 @@
 import { useTheme } from '../../hooks/useTheme';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
-import { FiMoon, FiSun } from 'react-icons/fi';
+import { IconMoon, IconSun } from './Icons';
 
 export default function ThemeToggle() {
 	const { theme, toggle } = useTheme();
@@ -21,7 +21,7 @@ export default function ThemeToggle() {
 			title={theme === 'dark' ? tt.titleToLight : tt.titleToDark}
 		>
 			<span aria-hidden="true" className="inline-flex">
-				{theme === 'dark' ? <FiMoon size={16} strokeWidth={2} /> : <FiSun size={16} strokeWidth={2} />}
+				{theme === 'dark' ? <IconMoon size={16} /> : <IconSun size={16} />}
 			</span>
 		</button>
 	);

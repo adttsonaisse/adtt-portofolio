@@ -1,17 +1,65 @@
-import { useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { site } from '../../data/site';
-import Lanyard from '../Lanyard';
 import { useSectionReveal } from '../../hooks/useSectionReveal';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
+import { useMagnet } from '../../hooks/useMagnet';
+
+const Lanyard = lazy(() => import('../Lanyard'));
 
 export default function About() {
 	const ref = useSectionReveal<HTMLElement>();
+	const ctaRef = useMagnet<HTMLAnchorElement>();
+	const lanyardHostRef = useRef<HTMLDivElement>(null);
+	const [showLanyard, setShowLanyard] = useState(() =>
+		typeof window !== 'undefined' && window.location.hash === '#about',
+	);
 	const { locale } = useLanguage();
 	const m = useMessages(locale);
 	const siteData = site[locale];
 	// Badge flip: depan = peran, belakang = status ketersediaan.
 	const [flipped, setFlipped] = useState(false);
+
+	// Tunda load chunk 3D Lanyard (Three.js + Rapier WASM + card.glb 2.4MB)
+	// sampai minimal 15% area lanyard benar-benar masuk viewport (atau klik #about),
+	// agar di initial load Hero (desktop 940px / mobile) chunk 3D tidak ikut terpicu.
+	useEffect(() => {
+		if (showLanyard) return;
+		const el = lanyardHostRef.current;
+		if (!el) return;
+		const activate = () => setShowLanyard(true);
+		const onHash = () => {
+			if (window.location.hash === '#about') activate();
+		};
+		const onClick = (e: MouseEvent) => {
+			const link = (e.target as Element | null)?.closest?.('a[href="#about"]');
+			if (link) activate();
+		};
+		window.addEventListener('hashchange', onHash);
+		document.addEventListener('click', onClick, true);
+		if (typeof IntersectionObserver === 'undefined') {
+			activate();
+			return () => {
+				window.removeEventListener('hashchange', onHash);
+				document.removeEventListener('click', onClick, true);
+			};
+		}
+		const io = new IntersectionObserver(
+			(entries) => {
+				if (entries[0]?.isIntersecting) {
+					activate();
+					io.disconnect();
+				}
+			},
+			{ rootMargin: '0px', threshold: 0.15 },
+		);
+		io.observe(el);
+		return () => {
+			io.disconnect();
+			window.removeEventListener('hashchange', onHash);
+			document.removeEventListener('click', onClick, true);
+		};
+	}, [showLanyard]);
 
 	return (
 		<section
@@ -43,21 +91,26 @@ export default function About() {
 						<p className="section-label mb-3">
 							01 · {m.about.label}
 						</p>
-						{/* Lanyard — transparent parent, no bg/border */}
+						{/* Lanyard — transparent parent, no bg/border, fixed height to prevent CLS */}
 						<div
-							className="relative overflow-hidden"
+							ref={lanyardHostRef}
+							className="relative h-105 overflow-hidden md:h-130"
 							style={{ background: 'transparent', border: 'none', borderRadius: 'var(--radius-lg)' }}
 						>
-							<Lanyard
-								position={[0, 0, 13]}
-								gravity={[0, -40, 0]}
-								fov={22}
-								transparent
-								frontImage="/lanyard-biodata-front.png"
-								backImage="/adtt.png"
-								imageFit="cover"
-								className="h-105 md:h-130"
-							/>
+							{showLanyard ? (
+								<Suspense fallback={<div aria-hidden="true" className="h-full w-full" />}>
+									<Lanyard
+										position={[0, 0, 13]}
+										gravity={[0, -40, 0]}
+										fov={22}
+										transparent
+										frontImage="/lanyard-biodata-front.png"
+										backImage="/adtt-600.webp"
+										imageFit="cover"
+										className="h-full"
+									/>
+								</Suspense>
+							) : null}
 						</div>
 						<button
 							type="button"
@@ -112,6 +165,7 @@ export default function About() {
 
 							<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3" data-reveal-item>
 								<a
+									ref={ctaRef}
 									href="#contact"
 									className="rounded-full px-6 py-3 text-sm font-semibold text-white transition hover:brightness-[0.96]"
 									style={{ background: 'var(--color-primary)', boxShadow: 'var(--shadow-lift)' }}

@@ -17,7 +17,6 @@ const DEFAULT_COLORS = ['#5855F6', '#818CF8', '#fafafa'];
 
 export function burst(x: number, y: number, opts: BurstOptions = {}): () => void {
 	if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
-	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return () => {};
 
 	const { count = 18, colors = DEFAULT_COLORS, size = [2, 5], speed = [120, 340], gravity = 520, zIndex = 300 } = opts;
 

@@ -14,8 +14,8 @@ export type Project = {
 // (gambar dari chat tidak bisa saya simpan langsung — drop manual).
 // Selama file belum ada, galeri Educart tampil kosong.
 const IMG = {
-	pmr: '/projects/pmr-smekar.png',
-	educart: '/projects/educart.png',
+	pmr: '/projects/pmr-smekar.webp',
+	educart: '/projects/educart.webp',
 };
 
 const baseProjects = [

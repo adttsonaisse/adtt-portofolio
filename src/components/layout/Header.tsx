@@ -6,8 +6,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useMessages } from '../../lib/messages';
 
-// pakai logo dari public/logo.png — display 1:1 via PillNav container
-const logoDataUri = '/logo.png';
+// pakai logo WebP ringan (1.8KB) — display 1:1 via PillNav container
+const logoDataUri = '/logo.webp';
 
 export default function Header() {
 	const { theme } = useTheme();

@@ -237,6 +237,22 @@ class Title {
       -this.plane.scale.y * 0.5 - textHeightScaled * 0.5 - 0.05;
     this.mesh.setParent(this.plane);
   }
+
+  updateFont(font: string) {
+    if (this.font === font) return;
+    this.font = font;
+    const { texture, width, height } = createTextTexture(
+      this.gl,
+      this.text,
+      this.font,
+      this.textColor,
+    );
+    this.mesh.program.uniforms.tMap.value = texture;
+    const aspect = width / height;
+    const textHeightScaled = this.mesh.scale.y;
+    const textWidthScaled = textHeightScaled * aspect;
+    this.mesh.scale.set(textWidthScaled, textHeightScaled, 1);
+  }
 }
 
 interface ScreenSize {
@@ -541,6 +557,11 @@ class App {
   boundOnTouchMove!: (e: MouseEvent | TouchEvent) => void;
   boundOnTouchUp!: () => void;
   boundOnKeyDown!: (e: KeyboardEvent) => void;
+  boundUpdate!: () => void;
+  boundOnVisibility!: () => void;
+  private io: IntersectionObserver | null = null;
+  private inViewport: boolean = true;
+  private destroyed: boolean = false;
 
   isDown: boolean = false;
   start: number = 0;
@@ -569,21 +590,23 @@ class App {
     this.scroll = { ease: scrollEase, current: 0, target: 0, last: 0 };
     this.onCheckDebounce = debounce(this.onCheck.bind(this), 200);
     this.onActiveIndexChange = onActiveIndexChange;
+    this.boundUpdate = this.update.bind(this);
+    this.boundOnVisibility = this.onVisibilityChange.bind(this);
     this.createRenderer();
     this.createCamera();
     this.createScene();
     this.onResize();
     this.createGeometry();
     this.createMedias(items, bend, textColor, borderRadius, font);
-    this.update();
     this.addEventListeners();
+    this.startLoop();
   }
 
   createRenderer() {
     this.renderer = new Renderer({
       alpha: true,
       antialias: true,
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
+      dpr: Math.min(window.devicePixelRatio || 1, 1.5),
     });
     this.gl = this.renderer.gl;
     this.gl.clearColor(0, 0, 0, 0);
@@ -602,8 +625,8 @@ class App {
 
   createGeometry() {
     this.planeGeometry = new Plane(this.gl, {
-      heightSegments: 50,
-      widthSegments: 100,
+      heightSegments: 16,
+      widthSegments: 32,
     });
   }
 
@@ -818,6 +841,10 @@ class App {
     this.goStep(-1);
   }
 
+  updateFont(font: string) {
+    this.medias.forEach((media) => media.title?.updateFont(font));
+  }
+
   onResize() {
     this.screen = {
       width: this.container.clientWidth,
@@ -838,7 +865,26 @@ class App {
     }
   }
 
+  startLoop() {
+    if (this.destroyed || this.raf || !this.inViewport || document.hidden) return;
+    this.raf = window.requestAnimationFrame(this.boundUpdate);
+  }
+
+  stopLoop() {
+    if (this.raf) {
+      window.cancelAnimationFrame(this.raf);
+      this.raf = 0;
+    }
+  }
+
+  onVisibilityChange() {
+    if (document.hidden) this.stopLoop();
+    else this.startLoop();
+  }
+
   update() {
+    this.raf = 0;
+    if (this.destroyed || !this.inViewport || document.hidden) return;
     this.scroll.current = lerp(
       this.scroll.current,
       this.scroll.target,
@@ -850,7 +896,7 @@ class App {
     }
     this.renderer.render({ scene: this.scene, camera: this.camera });
     this.scroll.last = this.scroll.current;
-    this.raf = window.requestAnimationFrame(this.update.bind(this));
+    this.raf = window.requestAnimationFrame(this.boundUpdate);
   }
 
   addEventListeners() {
@@ -877,10 +923,27 @@ class App {
     window.addEventListener("touchend", this.boundOnTouchUp);
 
     this.container?.addEventListener("keydown", this.boundOnKeyDown);
+    document.addEventListener("visibilitychange", this.boundOnVisibility);
+
+    if (typeof IntersectionObserver !== "undefined") {
+      this.io = new IntersectionObserver(
+        (entries) => {
+          this.inViewport = entries[0]?.isIntersecting ?? true;
+          if (this.inViewport) this.startLoop();
+          else this.stopLoop();
+        },
+        { rootMargin: "120px 0px", threshold: 0 },
+      );
+      this.io.observe(this.container);
+    }
   }
 
   destroy() {
-    window.cancelAnimationFrame(this.raf);
+    this.destroyed = true;
+    this.stopLoop();
+    this.io?.disconnect();
+    this.io = null;
+    document.removeEventListener("visibilitychange", this.boundOnVisibility);
     window.removeEventListener("resize", this.boundOnResize);
     this.container.removeEventListener("mousewheel", this.boundOnWheel);
     this.container.removeEventListener("wheel", this.boundOnWheel);
@@ -952,26 +1015,27 @@ const CircularGallery = forwardRef<CircularGalleryHandle, CircularGalleryProps>(
   );
   useEffect(() => {
     if (!containerRef.current) return;
-    let app: App | undefined;
     let isMounted = true;
+    const app = new App(containerRef.current, {
+      items,
+      bend,
+      textColor,
+      borderRadius,
+      font,
+      scrollSpeed,
+      scrollEase,
+      onActiveIndexChange: (idx: number) => callbackRef.current?.(idx),
+    });
+    appRef.current = app;
     resolveFont(font, fontUrl).then((resolvedFont) => {
-      if (!isMounted || !containerRef.current) return;
-      app = new App(containerRef.current, {
-        items,
-        bend,
-        textColor,
-        borderRadius,
-        font: resolvedFont,
-        scrollSpeed,
-        scrollEase,
-        onActiveIndexChange: (idx: number) => callbackRef.current?.(idx),
-      });
-      appRef.current = app;
+      if (isMounted && resolvedFont !== font) {
+        app.updateFont(resolvedFont);
+      }
     });
     return () => {
       isMounted = false;
       appRef.current = null;
-      if (app) app.destroy();
+      app.destroy();
     };
   }, [items, bend, textColor, borderRadius, font, fontUrl, scrollSpeed, scrollEase]);
   return (

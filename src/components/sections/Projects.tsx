@@ -20,7 +20,6 @@ function FeaturedSticker({ label }: { label: string }) {
 	useEffect(() => {
 		const el = ref.current;
 		if (!el) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 		let dragging = false;
 		let sx = 0;
 		let sy = 0;
@@ -84,6 +83,7 @@ function FeaturedSticker({ label }: { label: string }) {
 export default function Projects() {
 	const ref = useSectionReveal<HTMLElement>();
 	const galleryRef = useRef<CircularGalleryHandle>(null);
+	const captionRef = useRef<HTMLParagraphElement>(null);
 	const [active, setActive] = useState(0);
 	const { theme } = useTheme();
 	const { locale } = useLanguage();
@@ -98,8 +98,8 @@ export default function Projects() {
 	useEffect(() => {
 		if (prevActive.current === active) return;
 		prevActive.current = active;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		gsap.fromTo('.proj-caption', { scale: 0.94, rotate: -1 }, { scale: 1, rotate: 0, duration: 0.5, ease: 'back.out(2)', overwrite: 'auto' });
+		if (!captionRef.current) return;
+		gsap.fromTo(captionRef.current, { scale: 0.94, rotate: -1 }, { scale: 1, rotate: 0, duration: 0.5, ease: 'back.out(2)', overwrite: 'auto' });
 	}, [active]);
 
   return (
@@ -162,7 +162,7 @@ export default function Projects() {
         </div>
 
         <div className="mt-5 flex flex-col items-center gap-3">
-          <p className="proj-caption text-center">
+          <p ref={captionRef} className="proj-caption text-center">
             <span className="font-mono text-[11px] tracking-[0.12em] uppercase" style={{ color: 'var(--fg-muted)' }}>
               {String(active + 1).padStart(2, '0')} /               {String(localizedProjects.length).padStart(2, '0')}
             </span>

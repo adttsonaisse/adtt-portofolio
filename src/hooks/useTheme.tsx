@@ -5,19 +5,22 @@ type Ctx = { theme: Theme; toggle: () => void; setTheme: (t: Theme) => void };
 
 const ThemeContext = createContext<Ctx>({ theme: 'dark', toggle: () => {}, setTheme: () => {} });
 
+function getInitialTheme(): Theme {
+	if (typeof window === 'undefined') return 'dark';
+	try {
+		const stored = localStorage.getItem('theme') as Theme | null;
+		return stored ?? 'dark';
+	} catch {
+		return 'dark';
+	}
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-	const [theme, setThemeState] = useState<Theme>('dark');
+	const [theme, setThemeState] = useState<Theme>(getInitialTheme);
 
 	useEffect(() => {
-		try {
-			const stored = localStorage.getItem('theme') as Theme | null;
-			const initial: Theme = stored ?? 'dark';
-			document.documentElement.setAttribute('data-theme', initial);
-			setThemeState(initial);
-		} catch {
-			document.documentElement.setAttribute('data-theme', 'dark');
-		}
-	}, []);
+		document.documentElement.setAttribute('data-theme', theme);
+	}, [theme]);
 
 	const setTheme = (value: Theme) => {
 		document.documentElement.setAttribute('data-theme', value);

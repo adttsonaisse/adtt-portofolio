@@ -60,7 +60,10 @@ export default function Lanyard({
   lanyardWidth = 1,
   className
 }: LanyardProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [inView, setInView] = useState(true);
+  const [tabVisible, setTabVisible] = useState(() => typeof document === 'undefined' || !document.hidden);
 
   useEffect(() => {
     const handleResize = (): void => setIsMobile(window.innerWidth < 768);
@@ -68,19 +71,43 @@ export default function Lanyard({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Pause WebGL + Rapier physics saat off-screen atau tab disembunyikan — hemat CPU/GPU besar.
+  useEffect(() => {
+    const el = hostRef.current;
+    if (!el) return;
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver(
+            (entries) => setInView(entries[0]?.isIntersecting ?? true),
+            { rootMargin: '120px 0px', threshold: 0 }
+          )
+        : null;
+    io?.observe(el);
+    const onVis = () => setTabVisible(!document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      io?.disconnect();
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
+
+  const active = inView && tabVisible;
+
   return (
     <div
+      ref={hostRef}
       className={`relative z-0 w-full flex justify-center items-center transform scale-100 origin-center ${className ?? 'h-screen'}`}
       style={{ background: 'transparent' }}
     >
       <Canvas
+        frameloop={active ? 'always' : 'never'}
         camera={{ position, fov }}
-        dpr={[1, isMobile ? 1.5 : 2]}
-        gl={{ alpha: transparent }}
+        dpr={[1, isMobile ? 1.25 : 1.5]}
+        gl={{ alpha: transparent, powerPreference: 'high-performance' }}
         onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0x000000), transparent ? 0 : 1)}
       >
         <ambientLight intensity={Math.PI} />
-        <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
+        <Physics gravity={gravity} paused={!active} timeStep={isMobile ? 1 / 30 : 1 / 60}>
           <Band
             isMobile={isMobile}
             frontImage={frontImage}
@@ -229,10 +256,16 @@ function Band({
     composite.needsUpdate = true;
     return composite;
   }, [frontImage, backImage, imageFit, frontTex, backTex, materials.base.map]);
-  const [curve] = useState(
-    () =>
-      new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()])
-  );
+  const [curve] = useState(() => {
+    const c = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+      new THREE.Vector3(),
+    ]);
+    c.curveType = 'chordal';
+    return c;
+  });
   const [dragged, drag] = useState<false | THREE.Vector3>(false);
   const [hovered, hover] = useState(false);
 
@@ -284,8 +317,9 @@ function Band({
     }
   });
 
-  curve.curveType = 'chordal';
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  useEffect(() => {
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  }, [texture]);
 
   return (
     <>
